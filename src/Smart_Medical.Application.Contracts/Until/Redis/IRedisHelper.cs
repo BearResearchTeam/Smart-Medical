@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Smart_Medical.Pharmacy;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -12,5 +13,6 @@ namespace Smart_Medical.Until.Redis
         Task<T> GetAsync(string key, Func<Task<T>> func);
         Task RemoveAsync(string key);
         Task<bool> ExistsAsync(string key); // 检查键是否存在
+        
     }
 }

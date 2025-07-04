@@ -3,6 +3,8 @@ using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using Smart_Medical.Pharmacy;
+using Smart_Medical.Until;
 using Smart_Medical.Until.Redis;
 using System;
 using System.Collections.Generic;
@@ -96,5 +98,7 @@ namespace Smart_Medical.Redis
 
             await cache.SetAsync(key, value, options);
         }
+
+     
     }
 }

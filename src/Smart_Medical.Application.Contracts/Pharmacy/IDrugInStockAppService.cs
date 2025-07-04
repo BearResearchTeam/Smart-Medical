@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Smart_Medical.Pharmacy.InAndOutWarehouse;
 using Smart_Medical.Until;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Volo.Abp.Application.Services;
 
@@ -16,6 +17,7 @@ namespace Smart_Medical.Pharmacy
         /// </summary>
         /// <param name="input">入库参数</param>
         /// <returns></returns>
-        Task<ApiResult<DrugInStockDto>> StockInAsync(CreateUpdateDrugInStockDto input);
+        Task<ApiResult<List<DrugInStockDetailDto>>> BatchStockInAsync([FromBody] BatchDrugInStockDto input);
+
     }
 }

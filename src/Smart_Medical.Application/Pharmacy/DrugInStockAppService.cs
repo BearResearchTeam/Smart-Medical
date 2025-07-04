@@ -2,6 +2,8 @@
 using Smart_Medical.Pharmacy.InAndOutWarehouse;
 using Smart_Medical.Until;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Volo.Abp.Application.Services;
 using Volo.Abp.DependencyInjection;
@@ -26,87 +28,77 @@ namespace Smart_Medical.Pharmacy
             _drugRepository = drugRepository;
         }
 
+
         /// <summary>
-        /// 药品入库
-        /// Drug stock-in (add inventory record)
+        /// 批量药品入库
         /// </summary>
         /// <remarks>
-        /// POST /api/app/pharmacy/drug-in-stock
-        /// 用于将药品入库，增加库存并记录入库明细。
+        /// POST /api/app/pharmacy/drug-in-stock/batch
         /// </remarks>
-        /// <param name="input">药品入库参数，包括药品ID、供应商ID、数量、入库日期、批号等</param>
-        /// <returns>无返回值，操作成功即表示入库成功</returns>
+        /// <param name="input">批量入库参数，包含多条明细</param>
+        /// <returns>批量入库结果</returns>
         [HttpPost]
-        public async Task<ApiResult<DrugInStockDto>> StockInAsync(CreateUpdateDrugInStockDto input)
+        public async Task<ApiResult<List<DrugInStockDetailDto>>> BatchStockInAsync([FromBody] BatchDrugInStockDto input)
         {
-            // 1. 查找药品实体
-            var drug = await _drugRepository.FindAsync(input.DrugId);
-            if (drug == null)
+            if (input.Details == null || !input.Details.Any())
+                return ApiResult<List<DrugInStockDetailDto>>.Fail("入库明细不能为空", ResultCode.ValidationError);
+
+            var resultList = new List<DrugInStockDetailDto>();
+
+            foreach (var detail in input.Details)
             {
-                return ApiResult<DrugInStockDto>.Fail("找不到对应的药品，请检查药品ID是否正确。", ResultCode.NotFound);
+                var drug = await _drugRepository.FindAsync(detail.DrugId);
+                if (drug == null)
+                    return ApiResult<List<DrugInStockDetailDto>>.Fail($"找不到药品ID:{detail.DrugId}", ResultCode.NotFound);
+
+                if (detail.ProductionDate > DateTime.Now)
+                    return ApiResult<List<DrugInStockDetailDto>>.Fail($"药品ID:{detail.DrugId} 生产日期不能晚于当前时间", ResultCode.ValidationError);
+                if (detail.ExpiryDate <= detail.ProductionDate)
+                    return ApiResult<List<DrugInStockDetailDto>>.Fail($"药品ID:{detail.DrugId} 有效期必须晚于生产日期", ResultCode.ValidationError);
+
+                int newStock = drug.Stock + detail.Quantity;
+                if (newStock > drug.StockUpper)
+                    return ApiResult<List<DrugInStockDetailDto>>.Fail($"药品ID:{detail.DrugId} 入库后库存({newStock})超过上限({drug.StockUpper})", ResultCode.ValidationError);
+                if (newStock < drug.StockLower)
+                    return ApiResult<List<DrugInStockDetailDto>>.Fail($"药品ID:{detail.DrugId} 入库后库存({newStock})低于下限({drug.StockLower})", ResultCode.ValidationError);
+
+                drug.Stock = newStock;
+                await _drugRepository.UpdateAsync(drug);
+
+                var drugInStock = new DrugInStock
+                {
+                    DrugId = detail.DrugId,
+                    Quantity = detail.Quantity,
+                    UnitPrice = detail.UnitPrice,
+                    TotalAmount = detail.UnitPrice * detail.Quantity,
+                    ProductionDate = detail.ProductionDate,
+                    ExpiryDate = detail.ExpiryDate,
+                    BatchNumber = detail.BatchNumber,
+                    Supplier = detail.Supplier,
+                    Status = "已入库",
+                    CreationTime = DateTime.Now
+                };
+                await _drugInStockRepository.InsertAsync(drugInStock);
+
+                resultList.Add(new DrugInStockDetailDto
+                {
+                    DrugId = drugInStock.DrugId,
+                    PharmaceuticalCompanyId = detail.PharmaceuticalCompanyId,
+                    Quantity = drugInStock.Quantity,
+                    UnitPrice = drugInStock.UnitPrice,
+                    TotalAmount = drugInStock.TotalAmount,
+                    ProductionDate = drugInStock.ProductionDate,
+                    ExpiryDate = drugInStock.ExpiryDate,
+                    BatchNumber = drugInStock.BatchNumber,
+                    Supplier = drugInStock.Supplier,
+                    Status = drugInStock.Status,
+                    CreationTime = drugInStock.CreationTime
+                });
             }
 
-            // 2. 校验生产日期、有效期
-            if (input.ProductionDate > DateTime.Now)
-            {
-                return ApiResult<DrugInStockDto>.Fail("生产日期不能晚于当前时间", ResultCode.ValidationError);
-            }
-            if (input.ExpiryDate <= input.ProductionDate)
-            {
-                return ApiResult<DrugInStockDto>.Fail("有效期必须晚于生产日期", ResultCode.ValidationError);
-            }
-
-            // 3. 校验库存上下限
-            int newStock = drug.Stock + input.Quantity;
-            if (newStock > drug.StockUpper)
-            {
-                return ApiResult<DrugInStockDto>.Fail($"入库后库存({newStock})超过上限({drug.StockUpper})", ResultCode.ValidationError);
-            }
-            if (newStock < drug.StockLower)
-            {
-                return ApiResult<DrugInStockDto>.Fail($"入库后库存({newStock})低于下限({drug.StockLower})", ResultCode.ValidationError);
-            }
-
-            // 4. 更新药品库存
-            drug.Stock = newStock;
-            await _drugRepository.UpdateAsync(drug);
-
-            // 5. 创建入库记录
-            var drugInStock = new DrugInStock
-            {
-                DrugId = input.DrugId,
-                Quantity = input.Quantity,
-                UnitPrice = input.UnitPrice,
-                TotalAmount = input.UnitPrice * input.Quantity,
-                ProductionDate = input.ProductionDate,
-                ExpiryDate = input.ExpiryDate,
-                BatchNumber = input.BatchNumber,
-                Supplier = input.Supplier,
-                Status = "已入库",
-                CreationTime = DateTime.Now
-            };
-            await _drugInStockRepository.InsertAsync(drugInStock);
-
-            // 6. 映射为DrugInStockDto
-            var dto = new DrugInStockDto
-            {
-                DrugId = drugInStock.DrugId,
-                Quantity = drugInStock.Quantity,
-                UnitPrice = drugInStock.UnitPrice,
-                TotalAmount = drugInStock.TotalAmount,
-                ProductionDate = drugInStock.ProductionDate,
-                ExpiryDate = drugInStock.ExpiryDate,
-                BatchNumber = drugInStock.BatchNumber,
-                Supplier = drugInStock.Supplier,
-                Status = drugInStock.Status,
-                // CreationTime 字段在Dto基类AuditedEntityDto<Guid>中
-
-                CreationTime = DateTime.Now
-
-            };
-
-            return ApiResult<DrugInStockDto>.Success(dto, ResultCode.Success);
+            return ApiResult<List<DrugInStockDetailDto>>.Success(resultList, ResultCode.Success);
         }
+
 
     }
 }

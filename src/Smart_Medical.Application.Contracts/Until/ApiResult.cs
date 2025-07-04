@@ -60,7 +60,7 @@ namespace Smart_Medical.Until
         /// </summary>
         /// <param name="code">状态码</param>
         /// <returns>ApiResult</returns>
-        public static ApiResult Success(ResultCode code)
+        public static ApiResult Success( ResultCode code)
         {
             return new ApiResult(true, code, "操作成功");
         }

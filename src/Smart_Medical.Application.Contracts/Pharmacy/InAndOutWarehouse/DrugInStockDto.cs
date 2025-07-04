@@ -1,19 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Volo.Abp.Application.Dtos;
 
 namespace Smart_Medical.Pharmacy.InAndOutWarehouse
 {
     /// <summary>
     /// 药品入库记录DTO
     /// </summary>
-    public class DrugInStockDto 
+    public class DrugInStockDto
     {
-   /// <summary>
+        /// <summary>
         /// 药品ID
         /// </summary>
         public int DrugId { get; set; }
