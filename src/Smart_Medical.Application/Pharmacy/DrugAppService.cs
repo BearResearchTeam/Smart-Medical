@@ -1,10 +1,13 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-
 using Microsoft.EntityFrameworkCore;
-
+using NPOI.SS.UserModel;
+using NPOI.XSSF.UserModel;
+using Smart_Medical.Redis;
 using Smart_Medical.Until;
+using Smart_Medical.Until.Redis;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Linq.Dynamic.Core;
 using System.Threading.Tasks;
@@ -13,9 +16,6 @@ using Volo.Abp.Application.Services;
 using Volo.Abp.DependencyInjection;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Uow;
-using NPOI.XSSF.UserModel;
-using NPOI.SS.UserModel;
-using System.IO;
 
 namespace Smart_Medical.Pharmacy
 {
@@ -25,14 +25,17 @@ namespace Smart_Medical.Pharmacy
     [ApiExplorerSettings(GroupName = "药品管理")]
     public class DrugAppService : ApplicationService, IDrugAppService
     {
+
         public IRepository<Drug, int> Repository { get; }
         public IRepository<MedicalHistory> GetRepository { get; }
         private readonly IUnitOfWorkManager _unitOfWorkManager;
-        public DrugAppService(IRepository<Drug, int> repository, IRepository<MedicalHistory> GetRepository, IUnitOfWorkManager unitOfWorkManager)
+        public IRedisHelper<PageResult<List<DrugDto>>> redisHelper;
+        public DrugAppService(IRepository<Drug, int> repository, IRepository<MedicalHistory> GetRepository, IUnitOfWorkManager unitOfWorkManager, IRedisHelper<PageResult<List<DrugDto>>> redisHelper)
         {
             Repository = repository;
             this.GetRepository = GetRepository;
             _unitOfWorkManager = unitOfWorkManager;
+            this.redisHelper = redisHelper;
         }
         /// <summary>
         /// 根据Id获取药品
@@ -66,44 +69,32 @@ namespace Smart_Medical.Pharmacy
         [HttpGet]
         public async Task<ApiResult<PageResult<List<DrugDto>>>> GetListAsync([FromQuery] DrugSearchDto search)
         {
+            // 1. 生成缓存key（包含所有影响结果的参数）
+            string cacheKey = $"DrugList:{search.DrugName}:{search.DrugType}:{search.ProductionDateStart}:{search.ProductionDateEnd}:{search.StockMin}:{search.StockMax}:{search.pageIndex}:{search.pageSize}";
+
+            // 2. 查缓存
+            var cacheData = await redisHelper.GetAsync(cacheKey, async () => null);
+            if (cacheData != null)
+            {
+                return ApiResult<PageResult<List<DrugDto>>>.Success(cacheData, ResultCode.Success);
+            }
+
+            // 3. 原有数据库查询逻辑
             var list = await Repository.GetQueryableAsync();
             var lists = await GetRepository.GetQueryableAsync();
-            // 按药品名称模糊查询
             if (!string.IsNullOrWhiteSpace(search.DrugName))
-            {
                 list = list.Where(x => x.DrugName.Contains(search.DrugName));
-            }
-
-            // 按药品类型模糊查询
             if (!string.IsNullOrWhiteSpace(search.DrugType))
-            {
                 list = list.Where(x => x.DrugType.Contains(search.DrugType));
-            }
-
-            // 按生产日期起筛选
             if (search.ProductionDateStart.HasValue)
-            {
                 list = list.Where(x => x.ProductionDate >= search.ProductionDateStart.Value);
-            }
-
-            // 按生产日期止筛选
             if (search.ProductionDateEnd.HasValue)
-            {
                 list = list.Where(x => x.ProductionDate <= search.ProductionDateEnd.Value);
-            }
-
-            // 按最小库存筛选
             if (search.StockMin.HasValue)
-            {
                 list = list.Where(x => x.Stock >= search.StockMin.Value);
-            }
-
-            // 按最大库存筛选
             if (search.StockMax.HasValue)
-            {
                 list = list.Where(x => x.Stock <= search.StockMax.Value);
-            }
-            // 联表查公司名称
+
             var query = from drug in list
                         join company in lists
                             on drug.PharmaceuticalCompanyId equals company.Id
@@ -114,7 +105,6 @@ namespace Smart_Medical.Pharmacy
                             DrugType = drug.DrugType,
                             PharmaceuticalCompanyId = company.Id,
                             PharmaceuticalCompanyName = company != null ? company.CompanyName : null,
-
                             FeeName = drug.FeeName,
                             DosageForm = drug.DosageForm,
                             Specification = drug.Specification,
@@ -128,7 +118,6 @@ namespace Smart_Medical.Pharmacy
                             Effect = drug.Effect,
                             Category = drug.Category
                         };
-            // 分页处理
             var res = query.PageResult(search.pageIndex, search.pageSize);
             var dto = res.Queryable.ToList();
             var pageInfo = new PageResult<List<DrugDto>>
@@ -137,6 +126,10 @@ namespace Smart_Medical.Pharmacy
                 TotleCount = res.RowCount,
                 TotlePage = (int)Math.Ceiling((double)res.RowCount / search.pageSize)
             };
+
+            // 4. 写入缓存
+            await redisHelper.SetAsync(cacheKey, pageInfo, TimeSpan.FromMinutes(10));
+
             return ApiResult<PageResult<List<DrugDto>>>.Success(pageInfo, ResultCode.Success);
         }
 
