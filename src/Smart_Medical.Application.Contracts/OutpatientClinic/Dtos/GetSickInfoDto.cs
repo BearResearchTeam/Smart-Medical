@@ -77,6 +77,8 @@ namespace Smart_Medical.OutpatientClinic.Dtos
         /// </summary>
         public int DrugId { get; set; }
 
+        public string DrugName { get; set; }
+
         /// <summary>
         /// 单次用药剂量（如 0.5、1.0 等）
         /// </summary>

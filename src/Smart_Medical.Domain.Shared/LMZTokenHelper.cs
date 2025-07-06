@@ -72,7 +72,6 @@ namespace Smart_Medical
             }
         }
 
-
         /// <summary>
         /// 创建加密JwtToken
         /// </summary>
@@ -120,7 +119,6 @@ namespace Smart_Medical
                 throw new Exception($"创建加密JwtToken{ex.Message}");
             }
         }
-
 
         /// <summary>
         /// 创建包含用户信息的Claim列表
