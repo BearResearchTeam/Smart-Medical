@@ -27,7 +27,7 @@ namespace Smart_Medical.Registration
     /// 医疗管理
     /// </summary>
     [ApiExplorerSettings(GroupName = "医疗管理")]
-    [Authorize]
+    //[Authorize]
     [IgnoreAntiforgeryToken]
     public class PatientService : ApplicationService, IPatientService
     {
