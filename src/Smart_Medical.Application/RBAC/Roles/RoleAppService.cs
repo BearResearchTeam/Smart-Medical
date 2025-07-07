@@ -39,23 +39,6 @@ namespace Smart_Medical.RBAC.Roles
             var result = await _roleRepository.InsertAsync(roles);
             return ApiResult.Success(ResultCode.Success);
         }
-
-        /// <summary>
-        /// 根据ID删除一个角色
-        /// </summary>
-        /// <param name="id">要删除的角色ID</param>
-        /// <returns>操作结果</returns>
-        public async Task<ApiResult> DeleteAsync(Guid id)
-        {
-            var role = await _roleRepository.GetAsync(id);
-            if (role == null)
-            {
-                return ApiResult.Fail("角色不存在", ResultCode.NotFound);
-            }
-            await _roleRepository.DeleteAsync(role);
-            return ApiResult.Success(ResultCode.Success);
-        }
-
         /// <summary>
         /// 根据ID获取单个角色的详细信息
         /// </summary>
@@ -80,7 +63,22 @@ namespace Smart_Medical.RBAC.Roles
             var roleDto = ObjectMapper.Map<Role, RoleDto>(result);
             return ApiResult<RoleDto>.Success(roleDto, ResultCode.Success);
         }
-
+        /// <summary>
+        /// 获取角色列表 用于下拉框
+        /// </summary>
+        /// <returns></returns>
+        public async Task<ApiResult<List<RoleDto>>> GetRoleListAsync()
+        {
+            var queryable = await _roleRepository.GetQueryableAsync();
+            return ApiResult<List<RoleDto>>.Success(
+                await AsyncExecuter.ToListAsync(
+                    queryable.Select(r => new RoleDto
+                    {
+                        Id = r.Id,
+                        RoleName = r.RoleName
+                    })
+                ), ResultCode.Success);
+        }
         /// <summary>
         /// 根据查询条件分页获取角色列表
         /// </summary>
@@ -116,8 +114,6 @@ namespace Smart_Medical.RBAC.Roles
                     RoleName = r.RoleName,
                     Description = r.Description,
                     CreationTime = r.CreationTime,
-                     //CreatorId = r.CreatorId,
-                    // LastModificationTime = r.LastModificationTime,
                      LastModifierId = r.LastModifierId
                 })
             );
@@ -148,6 +144,45 @@ namespace Smart_Medical.RBAC.Roles
 
             ObjectMapper.Map(input, role);
             await _roleRepository.UpdateAsync(role);
+            return ApiResult.Success(ResultCode.Success);
+        }
+
+        /// <summary>
+        /// 批量删除角色（通过逗号分隔的ID字符串）
+        /// </summary>
+        /// <param name="idsString">逗号分隔的角色ID字符串</param>
+        /// <returns>操作结果</returns>
+        [HttpDelete]
+        public async Task<ApiResult> DeleteAsync([FromQuery] string idsString)
+        {
+            if (string.IsNullOrWhiteSpace(idsString))
+            {
+                return ApiResult.Fail("请提供要删除的角色ID字符串。", ResultCode.NotFound);
+            }
+            // 解析字符串为 List<Guid>
+            var ids = idsString.Split(',')
+                               .Where(s => !string.IsNullOrWhiteSpace(s))
+                               .Select(s =>
+                               {
+                                   if (Guid.TryParse(s.Trim(), out Guid id))
+                                   {
+                                       return id;
+                                   }
+                                   throw new FormatException($"无效的GUID格式: {s}");
+                               })
+                               .ToList();
+            if (!ids.Any())
+            {
+                return ApiResult.Fail("解析后的角色ID列表为空。", ResultCode.NotFound);
+            }
+            var query = await _roleRepository.GetQueryableAsync();
+            var rolesToDelete = query.Where(x => ids.Contains(x.Id));
+            if (!rolesToDelete.Any())
+            {
+                return ApiResult.Fail("未找到要删除的角色", ResultCode.NotFound);
+            }
+            // 批量删除角色
+            await _roleRepository.DeleteManyAsync(rolesToDelete);
             return ApiResult.Success(ResultCode.Success);
         }
     }

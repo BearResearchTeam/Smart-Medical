@@ -67,6 +67,54 @@ namespace Smart_Medical.RBAC.RolePermissions
             return ApiResult.Success(ResultCode.Success);
         }
 
+
+        /// <summary>
+        /// 为指定角色批量授予权限
+        /// </summary>
+        /// <param name="roleId">角色ID</param>
+        /// <param name="permissionIds">权限ID列表</param>
+        /// <returns>操作结果</returns>
+        public async Task<ApiResult> BatchCreateAsync(Guid roleId, List<Guid> permissionIds)
+        {
+            // 1. 检查角色是否存在
+            var roleExists = await _roleRepository.AnyAsync(r => r.Id == roleId);
+            if (!roleExists)
+            {
+                return ApiResult.Fail("角色不存在", ResultCode.NotFound);
+            }
+
+            // 2. 检查所有权限是否存在
+            foreach (var permissionId in permissionIds)
+            {
+                var permissionExists = await _permissionRepository.AnyAsync(p => p.Id == permissionId);
+                if (!permissionExists)
+                {
+                    return ApiResult.Fail($"权限ID {permissionId} 不存在", ResultCode.NotFound);
+                }
+            }
+
+            // 3. 查询已存在的关联，避免重复插入
+            var existings = (await _rolePermissionRepository.GetQueryableAsync())
+                .Where(rp => rp.RoleId == roleId && permissionIds.Contains(rp.PermissionId))
+                .Select(rp => rp.PermissionId)
+                .ToList();
+
+            var toAdd = permissionIds.Except(existings).ToList();
+
+            foreach (var permissionId in toAdd)
+            {
+                var rolePermission = new RolePermission
+                {
+                    RoleId = roleId,
+                    PermissionId = permissionId
+                };
+                await _rolePermissionRepository.InsertAsync(rolePermission);
+            }
+
+            return ApiResult.Success(ResultCode.Success);
+        }
+
+
         /// <summary>
         /// 根据ID删除一条角色权限的关联记录
         /// </summary>

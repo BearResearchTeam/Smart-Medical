@@ -154,6 +154,7 @@ namespace Smart_Medical.RBAC.Users
             var userDtos = await AsyncExecuter.ToListAsync(
                 queryable.Select(u => new UserDto
                 {
+                    Id = u.Id,
                     UserName = u.UserName,
                     UserEmail = u.UserEmail,
                     UserPhone = u.UserPhone,

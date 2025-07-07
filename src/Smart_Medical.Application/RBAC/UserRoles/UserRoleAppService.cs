@@ -66,7 +66,53 @@ namespace Smart_Medical.RBAC.UserRoles
             await _userRoleRepository.InsertAsync(userRole);
             return ApiResult.Success(ResultCode.Success);
         }
+        /// <summary>
+        /// 为指定用户批量授予新角色
+        /// </summary>
+        /// <param name="userId">用户ID</param>
+        /// <param name="roleIds">要授予的角色ID列表</param>
+        /// <returns>操作结果</returns>
+        public async Task<ApiResult> BatchCreateAsync(Guid userId, List<Guid> roleIds)
+        {
+            // 检查用户是否存在
+            var userExists = await _userRepository.AnyAsync(u => u.Id == userId);
+            if (!userExists)
+            {
+                return ApiResult.Fail("用户不存在", ResultCode.NotFound);
+            }
 
+            // 检查所有传入的角色是否存在
+            foreach (var roleId in roleIds)
+            {
+                var roleExists = await _roleRepository.AnyAsync(r => r.Id == roleId);
+                if (!roleExists)
+                {
+                    return ApiResult.Fail($"角色ID {roleId} 不存在", ResultCode.NotFound);
+                }
+            }
+
+            // 获取该用户已拥有的角色关联，避免重复添加
+            var existingRoleIds = (await _userRoleRepository.GetQueryableAsync())
+                                    .Where(ur => ur.UserId == userId && roleIds.Contains(ur.RoleId))
+                                    .Select(ur => ur.RoleId)
+                                    .ToList();
+
+            // 过滤出需要新增的角色ID
+            var newRoleIds = roleIds.Except(existingRoleIds).ToList();
+
+            // 批量新增角色关联
+            foreach (var roleId in newRoleIds)
+            {
+                var userRole = new UserRole(GuidGenerator.Create())
+                {
+                    UserId = userId,
+                    RoleId = roleId
+                };
+                await _userRoleRepository.InsertAsync(userRole);
+            }
+
+            return ApiResult.Success(ResultCode.Success);
+        }
         /// <summary>
         /// 根据ID删除一条用户角色的关联记录
         /// </summary>
