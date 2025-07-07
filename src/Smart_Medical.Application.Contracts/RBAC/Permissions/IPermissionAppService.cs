@@ -22,5 +22,11 @@ namespace Smart_Medical.RBAC.Permissions
 
         Task<ApiResult> DeleteAsync(Guid id);
         Task<ApiResult<List<GetMenuPermissionTree>>> GetMenuPermissionTreeList(Guid? parentId=null);
+        /// <summary>
+        /// 获取菜单权限树
+        /// </summary>
+        /// <param name="parentId"></param>
+        /// <returns></returns>
+        Task<ApiResult<List<GetMenuPermissionTree>>> GetMenuPermissionTreeallList(Guid? parentId = null);
     }
 }

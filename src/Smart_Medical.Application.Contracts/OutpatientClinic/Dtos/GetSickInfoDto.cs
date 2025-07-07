@@ -12,6 +12,7 @@ namespace Smart_Medical.OutpatientClinic.Dtos
     /// </summary>
     public class GetSickInfoDto
     {
+        public Guid BasicPatientId { get; set; }
         /// <summary>
         /// 体温（℃）【BasicPatientInfo】
         /// </summary>
@@ -62,5 +63,55 @@ namespace Smart_Medical.OutpatientClinic.Dtos
         /// </summary>
         [StringLength(200, ErrorMessage = "医嘱内容长度不能超过200个字符")]
         public string MedicalAdvice { get; set; } = string.Empty;
+
+        /// <summary>
+        /// 药物处方
+        /// </summary>
+        public List<DrugItemDto> DrugItems { get; set; }
+    }
+
+    public class DrugItemDto
+    {
+        /// <summary>
+        /// 药品ID（关联 Drug.Id）
+        /// </summary>
+        public int DrugId { get; set; }
+
+        public string DrugName { get; set; }
+
+        /// <summary>
+        /// 单次用药剂量（如 0.5、1.0 等）
+        /// </summary>
+        public decimal Dosage { get; set; }
+
+        /// <summary>
+        /// 剂量单位（如：片、ml、mg）
+        /// </summary>
+        public string DosageUnit { get; set; }
+
+        /// <summary>
+        /// 用法（如：口服、肌注、静滴等）
+        /// </summary>
+        public string Usage { get; set; }
+
+        /// <summary>
+        /// 用药频率（如：每日一次、每日三次、睡前服用等）
+        /// </summary>
+        public string Frequency { get; set; }
+
+        /// <summary>
+        /// 开药总数量（如开30片）
+        /// </summary>
+        public int Number { get; set; }
+
+        /// <summary>
+        /// 数量单位（如：片、瓶、支）
+        /// </summary>
+        public string NumberUnit { get; set; }
+
+        /// <summary>
+        /// 医嘱内容（医生额外说明，可选）
+        /// </summary>
+        public string? MedicalAdvice { get; set; }
     }
 }

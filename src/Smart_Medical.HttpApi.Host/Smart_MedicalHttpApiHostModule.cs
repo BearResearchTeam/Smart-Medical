@@ -125,7 +125,7 @@ public class Smart_MedicalHttpApiHostModule : AbpModule
                     ValidAudience = configuration["Jwt:Audience"],
 
                     ValidateLifetime = true,
-                    ClockSkew = TimeSpan.FromMinutes(0), // 允许2分钟时间误差
+                    ClockSkew = TimeSpan.FromMinutes(0), // 允许时间误差
                 };
 
 

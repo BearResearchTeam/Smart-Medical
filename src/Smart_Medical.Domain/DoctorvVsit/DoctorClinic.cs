@@ -93,7 +93,7 @@ namespace Smart_Medical.DoctorvVsit
         PendingConsultation = 1, // 待就诊
         Cancelled = 2, // 已取消
         Completed = 3, // 已就诊
-        PendingEvaluation = 3// 待评价
+        PendingEvaluation = 4// 待评价
         //PendingReview = 1, // 待审核
         // Returned = 2, // 已退回
         //Withdrawn = 3, // 已撤回

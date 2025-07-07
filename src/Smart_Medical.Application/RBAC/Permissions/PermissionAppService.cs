@@ -139,7 +139,7 @@ namespace Smart_Medical.RBAC.Permissions
                     Icon = p.Icon,
                     // 4. 查找该顶级菜单下的所有子菜单（ParentId==当前菜单Id，且&& x.Type == PermissionType.Menu）
                     Children = permissionEntityList
-                        .Where(x => x.ParentId == p.Id && x.Type == PermissionType.Menu)
+                        .Where(x => x.ParentId == p.Id)
                         .Select(x => new GetMenuPermissionTree
                         {
                             Id = x.Id,
@@ -168,6 +168,61 @@ namespace Smart_Medical.RBAC.Permissions
             // 5. 返回树形结构结果
             return ApiResult<List<GetMenuPermissionTree>>.Success(menuPermissionList, ResultCode.Success);
         }
-       
+        /// <summary>
+        /// 获取菜单权限树（仅支持3级菜单结构）
+        /// </summary> 
+        /// <param name="parentId">可选，父级菜单Id，当前未用到</param>
+        /// <returns>菜单权限树列表</returns>
+        public async Task<ApiResult<List<GetMenuPermissionTree>>> GetMenuPermissionTreeallList(Guid? parentId = null)
+        {
+            // 1. 获取所有权限数据的 IQueryable
+            var permissionList = await _permissionRepository.GetQueryableAsync();
+
+            // 2. 将所有权限数据加载到内存，避免后续多次数据库访问
+            var permissionEntityList = permissionList.ToList();
+
+            // 3. 过滤出所有顶级菜单（ParentId==null）
+            var menuPermissionList = permissionEntityList
+                .Where(x => x.ParentId == null)
+                .Select(p => new GetMenuPermissionTree
+                {
+                    Id = p.Id,
+                    PermissionName = p.PermissionName,
+                    PermissionCode = p.PermissionCode,
+                    Type = p.Type,
+                    PagePath = p.PagePath,
+                    ParentId = p.ParentId,
+                    Icon = p.Icon,
+                
+                    Children = permissionEntityList
+                        .Where(x => x.ParentId == p.Id)
+                        .Select(x => new GetMenuPermissionTree
+                        {
+                            Id = x.Id,
+                            PermissionName = x.PermissionName,
+                            PermissionCode = x.PermissionCode,
+                            Type = x.Type,
+                            PagePath = x.PagePath,
+                            ParentId = x.ParentId,
+                            Icon = x.Icon,
+                            //Children = new List<GetMenuPermissionTree>()
+                            Children = permissionEntityList
+                            .Where(c => c.ParentId == x.Id)
+                            .Select(c => new GetMenuPermissionTree
+                            {
+                                Id = c.Id,
+                                PermissionName = c.PermissionName,
+                                PermissionCode = c.PermissionCode,
+                                Type = c.Type,
+                                PagePath = c.PagePath,
+                                ParentId = c.ParentId,
+                                Children = new List<GetMenuPermissionTree>()
+                            }).ToList()
+                        }).ToList()
+                }).ToList();
+
+            // 5. 返回树形结构结果
+            return ApiResult<List<GetMenuPermissionTree>>.Success(menuPermissionList, ResultCode.Success);
+        }
     }
 }

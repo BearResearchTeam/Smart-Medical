@@ -64,6 +64,8 @@ namespace Smart_Medical.OutpatientClinic.Dtos
         /// <summary>
         /// 发病时间
         /// </summary>
-        public DateTime? DiseaseOnsetTime { get; set; }
+        public DateTime? DiseaseOnsetTime { get; set; }        
     }
+
+    
 }

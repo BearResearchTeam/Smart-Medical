@@ -55,4 +55,34 @@ namespace Smart_Medical.DoctorvVsit.DoctorAccounts
         [StringLength(30, ErrorMessage = "科室名称长度不能超过30个字符")]
         public string DepartmentName { get; set; } = string.Empty;
     }
+
+    /// <summary>
+    /// 医生科室
+    /// </summary>
+    public class DoctorDepartDto
+    {
+
+        public Guid Id { get; set; }
+        /// <summary>
+        /// 科室名称（必填）
+        /// </summary>
+        [Required(ErrorMessage = "科室名称不能为空")]
+        [StringLength(50, ErrorMessage = "科室名称长度不能超过50个字符")]
+        public string DepartmentName { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// 医生列表
+    /// </summary>
+    public class DoctorListDto
+    {
+        public Guid Id { get; set; }
+
+        /// <summary>
+        /// 员工姓名
+        /// </summary>
+        [Required(ErrorMessage = "姓名不能为空")]
+        [StringLength(20, ErrorMessage = "姓名长度不能超过20个字符")]
+        public string EmployeeName { get; set; } = string.Empty;
+    }
 }
