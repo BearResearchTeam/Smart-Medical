@@ -13,9 +13,9 @@ using Volo.Abp.Domain.Repositories;
 namespace Smart_Medical.Medical
 {
     /// <summary>
-    /// 医疗管理AppService
+    /// 病历管理AppService
     /// </summary>
-    [ApiExplorerSettings(GroupName = "医疗管理")]
+    [ApiExplorerSettings(GroupName = "病种管理")]
     public class MedicalAppService : ApplicationService, IMedicalAppService
     {
         private readonly IRepository<Sick, Guid> _repository;

@@ -14,18 +14,13 @@ namespace Smart_Medical.Pharmacy
     /// </summary>
     public interface IPharmaceuticalCompanyAppService : IApplicationService
     {
-        /// <summary>
-        /// 根据公司名称查询
-        /// </summary>
-        /// <param name="name">公司名称</param>
-        /// <returns></returns>
-        Task<ApiResult> FindByNameAsync(string name);
+     
 
         /// <summary>
         /// 获取所有公司列表
         /// </summary>
         /// <returns></returns>
-        Task<ApiResult> GetListAllAsync();
+        Task<ApiResult> GetListAllAsync(string companyName);
 
         /// <summary>
         /// 新增制药公司

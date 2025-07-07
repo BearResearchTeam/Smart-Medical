@@ -23,56 +23,39 @@ namespace Smart_Medical.Pharmacy
             _repository = repository;
         }
 
-        /// <summary>
-        /// 根据公司名称查询
-        /// </summary>
-        /// <param name="name">公司名称</param>
-        /// <returns></returns>
-        [HttpGet]
-        public async Task<ApiResult> FindByNameAsync(string name)
+       
+     /// <summary>
+/// 获取公司列表（可按公司名称精准查询）
+/// </summary>
+/// <param name="companyName">公司名称</param>
+/// <returns></returns>
+[HttpGet]
+public async Task<ApiResult> GetListAllAsync(string companyName = null)
+{
+    try
+    {
+        // 查询所有公司
+        var companies = await _repository.GetListAsync();
+
+        // 如果传了公司名称，则做精准过滤
+        if (!string.IsNullOrWhiteSpace(companyName))
         {
-            try
-            {
-                // 从数据库中获取包含指定名称的公司列表
-                var companies = await _repository.GetListAsync(c => c.CompanyName.Contains(name));
-
-                if (companies == null || companies.Count == 0)
-                {
-                    return ApiResult.Fail("未找到公司数据", ResultCode.NotFound);
-                }
-
-                var result = ObjectMapper.Map<List<MedicalHistory>, List<PharmaceuticalCompanyDto>>(companies);
-                return ApiResult<List<PharmaceuticalCompanyDto>>.Success(result, ResultCode.Success);
-            }
-            catch (Exception ex)
-            {
-                return ApiResult.Fail($"查询公司失败: {ex.Message}", ResultCode.Error);
-            }
+            companies = companies.Where(c => c.CompanyName == companyName).ToList();
         }
-        /// <summary>
-        /// 获取所有公司列表
-        /// </summary>
-        /// <returns></returns>
-        [HttpGet]
-        public async Task<ApiResult> GetListAllAsync()
+
+        if (companies == null || companies.Count == 0)
         {
-            try
-            {
-                var companies = await _repository.GetListAsync();
-
-                if (companies == null || companies.Count == 0)
-                {
-                    return ApiResult.Fail("未找到公司数据", ResultCode.NotFound);
-                }
-
-                var result = ObjectMapper.Map<List<MedicalHistory>, List<PharmaceuticalCompanyDto>>(companies);
-                return ApiResult<List<PharmaceuticalCompanyDto>>.Success(result, ResultCode.Success);
-            }
-            catch (Exception ex)
-            {
-                return ApiResult.Fail($"获取公司列表失败: {ex.Message}", ResultCode.Error);
-            }
+            return ApiResult.Fail("未找到公司数据", ResultCode.NotFound);
         }
+
+        var result = ObjectMapper.Map<List<MedicalHistory>, List<PharmaceuticalCompanyDto>>(companies);
+        return ApiResult<List<PharmaceuticalCompanyDto>>.Success(result, ResultCode.Success);
+    }
+    catch (Exception ex)
+    {
+        return ApiResult.Fail($"获取公司列表失败: {ex.Message}", ResultCode.Error);
+    }
+}
 
         /// <summary>
         /// 新增制药公司
