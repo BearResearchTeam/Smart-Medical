@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Smart_Medical.Pharmacy;
 using Smart_Medical.Until;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,10 +17,12 @@ namespace Smart_Medical.Prescriptions
     public class PrescriptionService : ApplicationService, IPrescriptionService
     {
         private readonly IRepository<Prescription, int> pres;
+        private readonly IRepository<Drug, int> drogrepository;
 
-        public PrescriptionService(IRepository<Prescription, int> pres)
+        public PrescriptionService(IRepository<Prescription, int> pres,IRepository<Drug, int> drogrepository)
         {
             this.pres = pres;
+            this.drogrepository = drogrepository;
         }
         /// <summary>
         /// 创建处方
@@ -77,6 +80,12 @@ namespace Smart_Medical.Prescriptions
             }
             return result;
         }
+
+        //[HttpPost]
+        //public async Task<ApiResult<List<PrescriptionTree>>> GetPrescriptionTreeList(int pid)
+        //{
+            
+        //}
         /// <summary>
         /// 根据不同的处方父级id，返回不同的处方对应的信息
         /// Get prescriptions by parent id
