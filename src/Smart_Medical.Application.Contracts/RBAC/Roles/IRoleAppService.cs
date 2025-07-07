@@ -1,4 +1,5 @@
-﻿using Smart_Medical.Until;
+﻿using Microsoft.AspNetCore.Mvc;
+using Smart_Medical.Until;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -12,13 +13,13 @@ namespace Smart_Medical.RBAC.Roles
     public interface IRoleAppService : IApplicationService
     {
         Task<ApiResult<RoleDto>> GetAsync(Guid id);
-
+        Task<ApiResult<List<RoleDto>>> GetRoleListAsync();
         Task<ApiResult<PageResult<List<RoleDto>>>> GetListAsync(SeachRoleDto input);
 
         Task<ApiResult> CreateAsync(CreateUpdateRoleDto input);
 
         Task<ApiResult> UpdateAsync(Guid id, CreateUpdateRoleDto input);
 
-        Task<ApiResult> DeleteAsync(Guid id);
+        Task<ApiResult> DeleteAsync([FromQuery] string idsString);
     }
 }

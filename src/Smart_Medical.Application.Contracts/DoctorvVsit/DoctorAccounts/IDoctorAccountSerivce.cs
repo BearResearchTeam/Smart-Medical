@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Volo.Abp.Application.Services;
 using Smart_Medical.Until;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Smart_Medical.DoctorvVsit.DoctorAccounts
 {
@@ -35,6 +36,6 @@ namespace Smart_Medical.DoctorvVsit.DoctorAccounts
         /// </summary>
         /// <param name="id"></param>
         /// <returns></returns>
-        Task<ApiResult> DeleteDoctorAccount(Guid id);
+        Task<ApiResult> DeleteDoctorAccount([FromQuery] string idsString);
     }
 }

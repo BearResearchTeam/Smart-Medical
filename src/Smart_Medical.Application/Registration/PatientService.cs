@@ -15,6 +15,7 @@ using Smart_Medical.Until;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Dynamic.Core;
 using System.Threading.Tasks;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -62,9 +63,9 @@ namespace Smart_Medical.Registration
             IRepository<DoctorClinic, Guid> doctorclinRepo,
             IRepository<BasicPatientInfo, Guid> basicpatientRepo,
             IRepository<Sick, Guid> sickRepo,
-            IRepository<PatientPrescription, Guid> prescriptionRepo
-            , IRepository<Drug, int> drugRepo
-            , IRepository<Smart_Medical.Patient.Appointment, Guid> appointmentRep,
+            IRepository<PatientPrescription, Guid> prescriptionRepo,
+            IRepository<Drug, int> drugRepo,
+            IRepository<Smart_Medical.Patient.Appointment, Guid> appointmentRep,
              IRepository<UserPatient, Guid> userPatientRepo
             )
         {
@@ -110,7 +111,8 @@ namespace Smart_Medical.Registration
                         else
                         {
                             // ---- 更新已有患者信息 ----
-                            ObjectMapper.Map(input, existingPatient);
+                            patient = ObjectMapper.Map(input, existingPatient);
+                            patient.VisitStatus = "待就诊";
                             patient = await _patientRepo.UpdateAsync(existingPatient);
                         }
 
@@ -221,8 +223,7 @@ namespace Smart_Medical.Registration
                 // 6. 分页查询，跳过前面页数的数据，取当前页数据
                 var pagedPatients = await AsyncExecuter.ToListAsync(
                     filteredQuery
-                        .Skip((input.PageIndex - 1) * input.PageSize)
-                        .Take(input.PageSize)
+                        .Page(input.PageIndex, input.PageSize)
                 );
 
                 // 7. 实体转 DTO
@@ -297,7 +298,7 @@ namespace Smart_Medical.Registration
                                 // 构建返回的 DTO
                             select new GetSickInfoDto
                             {
-                                BasicPatientId = s.Id,
+                                BasicPatientId = pr.Id,
                                 Temperature = s.Temperature, // 体温
                                 Pulse = s.Pulse,             // 脉搏
                                 Breath = s.Breath,           // 呼吸
@@ -317,6 +318,7 @@ namespace Smart_Medical.Registration
                             .Select(g => g.First()) // 每组只保留第一个
                             .Select(item => new GetSickInfoDto
                             {
+                                BasicPatientId = item.BasicPatientId,
                                 Temperature = item.Temperature,
                                 Pulse = item.Pulse,
                                 Breath = item.Breath,
@@ -327,7 +329,17 @@ namespace Smart_Medical.Registration
                                 DrugItems = JsonConvert.DeserializeObject<List<DrugItemDto>>(item.DrugIds ?? "") ?? new List<DrugItemDto>(),
                             })
                             .ToList();
-
+                foreach (var item in result)
+                {
+                    foreach (var drug in item.DrugItems)
+                    {
+                        var drugInfo = await _drugRepo.GetAsync(drug.DrugId);
+                        if (drugInfo != null)
+                        {
+                            drug.DrugName = drugInfo.DrugName;
+                        }
+                    }
+                }
 
                 // 返回成功结果
                 return ApiResult<List<GetSickInfoDto>>.Success(result, ResultCode.Success);

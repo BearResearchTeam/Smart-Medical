@@ -12,6 +12,7 @@ namespace Smart_Medical.RBAC.RolePermissions
     /// </summary>
     public interface IRolePermissionAppService : IApplicationService
     {
+        Task<ApiResult> BatchCreateAsync(Guid roleId, List<Guid> permissionIds);
         Task<ApiResult<RolePermissionDto>> GetAsync(Guid id);
 
         Task<ApiResult<PageResult<List<RolePermissionDto>>>> GetListAsync(SeachRolePermissionDto input);

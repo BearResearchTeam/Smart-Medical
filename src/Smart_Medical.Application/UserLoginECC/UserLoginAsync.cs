@@ -3,6 +3,7 @@ using MD5Hash;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.StackExchangeRedis;
 using Microsoft.Extensions.Configuration;
@@ -11,6 +12,7 @@ using Microsoft.IdentityModel.Tokens;
 using Smart_Medical.Dictionarys;
 using Smart_Medical.Dictionarys.DictionaryTypes;
 using Smart_Medical.RBAC;
+using Smart_Medical.RBAC.Roles;
 using Smart_Medical.RBAC.Users;
 using Smart_Medical.Until;
 using StackExchange.Redis;
@@ -43,12 +45,20 @@ namespace Smart_Medical.UserLoginECC
         private readonly IConfiguration _configuration;
         private readonly JwtSecurityTokenHandler _jwtSecurityTokenHandler;
         private readonly IDistributedCache _redisCache;
+        private readonly IRepository<Permission, Guid> _permission;
+        private readonly IRepository<RBAC.Role, Guid> _roleRepository;
+        private readonly IRepository<UserRole, Guid> _userRoleRepository;
+
         public UserLoginAsync(
                 IRepository<User, Guid> userRepository,
                 IConfiguration configuration,
                 IDistributedCache<TokenPairDto> refreshTokenCache,
                 IDistributedCache redisCache, // 新增
-                LMZTokenHelper tokenHelper)
+                LMZTokenHelper tokenHelper,
+                IRepository<Permission, Guid> permission,
+                IRepository<RBAC.Role, Guid> roleRepository,
+                IRepository<UserRole, Guid> userRoleRepository
+                )
         {
             _userRepository = userRepository;
             _configuration = configuration;
@@ -56,6 +66,9 @@ namespace Smart_Medical.UserLoginECC
             _redisCache = redisCache; // 新增赋值
             _tokenHelper = tokenHelper;
             _jwtSecurityTokenHandler = new JwtSecurityTokenHandler();
+            _permission = permission;
+            _roleRepository = roleRepository;
+            _userRoleRepository = userRoleRepository;
         }
 
         /// <summary>
@@ -63,7 +76,7 @@ namespace Smart_Medical.UserLoginECC
         /// </summary>
         /// <param name="loginDto"></param>
         /// <returns></returns>
-        public async Task<ApiResult<ResultLoginDto>> LoginAsync(LoginDto loginDto)
+        public async Task<ApiResult<UserDto>> LoginAsync(LoginDto loginDto)
         {
             try
             {
@@ -74,25 +87,45 @@ namespace Smart_Medical.UserLoginECC
                 // 检查用户是否存在
                 if (user == null)
                 {
-                    return ApiResult<ResultLoginDto>.Fail("用户名不存在", ResultCode.NotFound);
+                    return ApiResult<UserDto>.Fail("用户名不存在", ResultCode.NotFound);
                 }
 
                 // 验证密码
                 if (user.UserPwd != loginDto.UserPwd.GetMD5())
                 {
-                    return ApiResult<ResultLoginDto>.Fail("密码错误", ResultCode.ValidationError);
+                    return ApiResult<UserDto>.Fail("密码错误", ResultCode.ValidationError);
                 }
 
                 // 登录成功，返回用户信息
-                var userDto = ObjectMapper.Map<User, ResultLoginDto>(user);
+                var userDto = ObjectMapper.Map<User, UserDto>(user);
+                //userDto.RoleName = null;
 
+                // 获取用户角色
+                //var quary = await _userRoleRepository.GetQueryableAsync();
+                //var RoleId = quary.Include(x => x.Role).Where(x=>x.UserId== userDto.Id).Select(x=>x.RoleId);
+
+                userDto.RoleName = await _userRoleRepository.GetQueryableAsync()
+                                .ContinueWith(t => t.Result //ContinueWith 用于“前一个任务完成后，继续执行下一个任务”，实现任务的链式编排和回调处理。
+                                .Where(x => x.UserId == userDto.Id)
+                                .Include(x => x.Role)
+                                .Select(x => x.Role.RoleName)
+                                .ToList());
+
+
+                //权限
+                /*  var permissiondtos = await _permission.GetQueryableAsync();
+                  permissiondtos = permissiondtos.Where(x => x.Type == Enums.PermissionType.Button);
+                  userDto.Permissions = permissiondtos.Select(x => x.PermissionCode).ToList();*/
+
+
+                //token获取
                 var tokens = await GenerateTokensAsync(user);
 
                 userDto.AccessToken = tokens.AccessToken;
                 userDto.RefreshToken = tokens.RefreshToken;
-                userDto.UserNumber = user.Id;
-
-                return ApiResult<ResultLoginDto>.Success(userDto, ResultCode.Success);
+                userDto.AccessTokenExpires = tokens.AccessTokenExpires;
+                userDto.RefreshTokenExpires = tokens.RefreshTokenExpires;
+                return ApiResult<UserDto>.Success(userDto, ResultCode.Success);
             }
             catch (Exception)
             {
@@ -105,24 +138,22 @@ namespace Smart_Medical.UserLoginECC
         /// </summary>
         /// <param name="user"></param>
         /// <returns></returns>
-
         public async Task<TokenPairDtos> GenerateTokensAsync(User user)
         {
             LMZTokenHelper token = new LMZTokenHelper(_configuration);
 
             // 1. AccessToken
             var accessToken = token.CreateJwtToken(user);
-            var accessTokenExpires = DateTime.UtcNow.AddMinutes(1); //10分钟有效
+            var accessTokenExpires = DateTime.UtcNow.AddMinutes(10); //10分钟有效
 
             // 2. RefreshToken
             var refreshToken = token.CreateJwtToken(user, 30);
-            var refreshTokenExpires = DateTime.UtcNow.AddMinutes(30);
+            var refreshTokenExpires = DateTime.UtcNow.AddDays(7);//7天过期
 
             var cacheKey = $"SmartMedical:RefreshToken{user.Id}";
 
             var cacheItem = new TokenPairDto
             {
-                UserNumber = user.Id,
                 RefreshToken = refreshToken,
                 RefreshTokenExpires = refreshTokenExpires
             };

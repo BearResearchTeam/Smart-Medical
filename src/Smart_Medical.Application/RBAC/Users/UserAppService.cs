@@ -106,7 +106,7 @@ namespace Smart_Medical.RBAC.Users
                         UserPhone = u.UserPhone,
                         UserSex = u.UserSex,
                         // EF Core表达式树不支持空传播运算符(?.), 改用Select().FirstOrDefault()达到同样的安全效果
-                        RoleName = u.UserRoles.Select(ur => ur.Role.RoleName).FirstOrDefault()
+                        RoleName = u.UserRoles.Select(ur => ur.Role.RoleName).ToList()
                     })
             );
 
@@ -160,7 +160,7 @@ namespace Smart_Medical.RBAC.Users
                     UserPhone = u.UserPhone,
                     UserSex = u.UserSex,
                     // EF Core表达式树不支持空传播运算符(?.), 改用Select().FirstOrDefault()达到同样的安全效果
-                    RoleName = u.UserRoles.Select(ur => ur.Role.RoleName).FirstOrDefault()
+                    RoleName = u.UserRoles.Select(ur => ur.Role.RoleName).ToList()
 
                     // 根据你的要求，不再映射审计字段
                 })
@@ -241,7 +241,7 @@ namespace Smart_Medical.RBAC.Users
             //    .ToList() ?? new List<string>();
             var permissiondtos= await permission.GetQueryableAsync();
             permissiondtos= permissiondtos.Where(x=>x.Type==Enums.PermissionType.Button);
-            userDto.Permissions = permissiondtos.Select(x=>x.PermissionCode).ToList();
+            //userDto.Permissions = permissiondtos.Select(x=>x.PermissionCode).ToList();
 
             return ApiResult<UserDto>.Success(userDto, ResultCode.Success);
         }
@@ -460,7 +460,7 @@ namespace Smart_Medical.RBAC.Users
                         UserPhone = u.UserPhone,
                         UserSex = u.UserSex,
                         // EF Core表达式树不支持空传播运算符(?.), 改用Select().FirstOrDefault()达到同样的安全效果
-                        RoleName = u.UserRoles.Select(ur => ur.Role.RoleName).FirstOrDefault()
+                        RoleName = u.UserRoles.Select(ur => ur.Role.RoleName).ToList()
 
                         // 根据你的要求，不再映射审计字段
                     })

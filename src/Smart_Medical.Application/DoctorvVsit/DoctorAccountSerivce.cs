@@ -119,7 +119,11 @@ namespace Smart_Medical.DoctorvVsit
                 return ApiResult.Fail("信息错误", ResultCode.NotFound);
             }
             var entity = await doctors.GetAsync(id);
-           
+            var deptlist = await dept.GetQueryableAsync();
+
+            deptlist = deptlist.Where(x => x.Id == input.DepartmentId);
+            input.DepartmentName = deptlist.FirstOrDefault()?.DepartmentName;
+
             ObjectMapper.Map(input, entity);
             await doctors.UpdateAsync(entity);
             await doctorredis.RemoveAsync(CacheKey);
@@ -129,19 +133,89 @@ namespace Smart_Medical.DoctorvVsit
         /// <summary>
         /// 删除医生账户
         /// </summary>
-        /// <param name="id"></param>
+        /// <param name="idsString"></param>
         /// <returns></returns>
-        //[HttpDelete]
-        public async Task<ApiResult> DeleteDoctorAccount(Guid id)
+        /// <exception cref="FormatException"></exception>
+        [HttpDelete]
+        public async Task<ApiResult> DeleteDoctorAccount([FromQuery]string idsString)
         {
-            var entity = await doctors.GetAsync(id);
-            if (entity == null)
+            
+           
+            if (string.IsNullOrWhiteSpace(idsString))
             {
-                return ApiResult.Fail("医生账户不存在", ResultCode.ValidationError);
+                return ApiResult.Fail("请提供要删除的医生账户ID字符串。", ResultCode.NotFound);
             }
-            await doctors.DeleteAsync(id);
+            // 将逗号分隔的字符串解析为 List<Guid>
+            var ids = idsString.Split(',')
+                               .Where(s => !string.IsNullOrWhiteSpace(s))
+                               .Select(s =>
+                               {
+                                   if (Guid.TryParse(s.Trim(), out Guid id))
+                                   {
+                                       return id;
+                                   }
+                                   throw new FormatException($"无效的GUID格式: {s}"); // 如果有无效GUID，可以抛出异常
+                               })
+                               .ToList();
+            if (!ids.Any())
+            {
+                return ApiResult.Fail("解析后的医生账户ID列表为空。", ResultCode.NotFound);
+            }
+            var entity = await doctors.GetQueryableAsync();
+            entity = entity.Where(x => ids.Contains(x.Id));
+            if (!entity.Any())
+            {
+                return ApiResult.Fail("未找到要删除的医生账户", ResultCode.NotFound);
+            }
+            // 批量删除医生账户
+            await doctors.DeleteManyAsync(entity);
             await doctorredis.RemoveAsync(CacheKey);
             return ApiResult.Success(ResultCode.Success);
+        }
+
+        /// <summary>
+        /// 查询全部科室
+        /// </summary>
+        public async Task<ApiResult<List<DoctorDepartDto>>> GetAllDepartmentsAsync()
+        {
+            try
+            {
+                var departments = await dept.GetListAsync();
+                var result = departments.Select(d => new DoctorDepartDto
+                {
+                    Id = d.Id,
+                    DepartmentName = d.DepartmentName
+                }).ToList();
+                return ApiResult<List<DoctorDepartDto>>.Success(result, ResultCode.Success);
+            }
+            catch (Exception)
+            {
+
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// 根据科室 ID 查询医生列表
+        /// </summary>
+        /// <param name="departmentId">科室 ID</param>
+        public async Task<ApiResult<List<DoctorListDto>>> GetDoctorsByDepartmentIdAsync(Guid departmentId)
+        {
+            try
+            {
+                var doctorList = await doctors.GetListAsync(d => d.DepartmentId == departmentId && d.IsActive);
+                var result = doctorList.Select(d => new DoctorListDto
+                {
+                    Id = d.Id,
+                    EmployeeName = d.EmployeeName
+                }).ToList();
+                return ApiResult<List<DoctorListDto>>.Success(result, ResultCode.Success);
+            }
+            catch (Exception)
+            {
+
+                throw;
+            }
         }
     }
 }
