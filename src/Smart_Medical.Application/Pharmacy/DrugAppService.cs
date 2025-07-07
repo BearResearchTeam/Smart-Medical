@@ -1,4 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+
+using Microsoft.EntityFrameworkCore;
+
 using Smart_Medical.Until;
 using System;
 using System.Collections.Generic;
@@ -9,6 +12,10 @@ using Volo.Abp;
 using Volo.Abp.Application.Services;
 using Volo.Abp.DependencyInjection;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.Uow;
+using NPOI.XSSF.UserModel;
+using NPOI.SS.UserModel;
+using System.IO;
 
 namespace Smart_Medical.Pharmacy
 {
@@ -19,10 +26,13 @@ namespace Smart_Medical.Pharmacy
     public class DrugAppService : ApplicationService, IDrugAppService
     {
         public IRepository<Drug, int> Repository { get; }
-
-        public DrugAppService(IRepository<Drug, int> repository)
+        public IRepository<MedicalHistory> GetRepository { get; }
+        private readonly IUnitOfWorkManager _unitOfWorkManager;
+        public DrugAppService(IRepository<Drug, int> repository, IRepository<MedicalHistory> GetRepository, IUnitOfWorkManager unitOfWorkManager)
         {
             Repository = repository;
+            this.GetRepository = GetRepository;
+            _unitOfWorkManager = unitOfWorkManager;
         }
         /// <summary>
         /// 根据Id获取药品
@@ -57,7 +67,7 @@ namespace Smart_Medical.Pharmacy
         public async Task<ApiResult<PageResult<List<DrugDto>>>> GetListAsync([FromQuery] DrugSearchDto search)
         {
             var list = await Repository.GetQueryableAsync();
-
+            var lists = await GetRepository.GetQueryableAsync();
             // 按药品名称模糊查询
             if (!string.IsNullOrWhiteSpace(search.DrugName))
             {
@@ -93,10 +103,34 @@ namespace Smart_Medical.Pharmacy
             {
                 list = list.Where(x => x.Stock <= search.StockMax.Value);
             }
+            // 联表查公司名称
+            var query = from drug in list
+                        join company in lists
+                            on drug.PharmaceuticalCompanyId equals company.Id
+                        select new DrugDto
+                        {
+                            DrugID = drug.Id,
+                            DrugName = drug.DrugName,
+                            DrugType = drug.DrugType,
+                            PharmaceuticalCompanyId = company.Id,
+                            PharmaceuticalCompanyName = company != null ? company.CompanyName : null,
 
+                            FeeName = drug.FeeName,
+                            DosageForm = drug.DosageForm,
+                            Specification = drug.Specification,
+                            PurchasePrice = drug.PurchasePrice,
+                            SalePrice = drug.SalePrice,
+                            Stock = drug.Stock,
+                            StockUpper = drug.StockUpper,
+                            StockLower = drug.StockLower,
+                            ProductionDate = drug.ProductionDate,
+                            ExpiryDate = drug.ExpiryDate,
+                            Effect = drug.Effect,
+                            Category = drug.Category
+                        };
             // 分页处理
-            var res = list.PageResult(search.pageIndex, search.pageSize);
-            var dto = ObjectMapper.Map<List<Drug>, List<DrugDto>>(res.Queryable.ToList());
+            var res = query.PageResult(search.pageIndex, search.pageSize);
+            var dto = res.Queryable.ToList();
             var pageInfo = new PageResult<List<DrugDto>>
             {
                 Data = dto,
@@ -115,6 +149,7 @@ namespace Smart_Medical.Pharmacy
         public async Task<ApiResult> CreateAsync(CreateUpdateDrugDto input)
         {
             var exists = await Repository.AnyAsync(d => d.DrugName == input.DrugName);
+
             if (exists)
                 throw new UserFriendlyException($"药品名称 '{input.DrugName}' 已存在！");
 
@@ -178,6 +213,125 @@ namespace Smart_Medical.Pharmacy
         {
             await Repository.DeleteAsync(id);
             return ApiResult.Success(ResultCode.Success);
+        }
+
+        /// <summary>
+        /// 批量删除药品
+        /// </summary>
+        /// <param name="input">批量删除参数</param>
+        /// <returns></returns>
+        [HttpPost("batch-delete")]
+        public async Task<ApiResult> BatchDeleteAsync(BatchDeleteDrugDto input)
+        {
+            // 注入 IUnitOfWorkManager _unitOfWorkManager
+            using (var uow = _unitOfWorkManager.Begin(requiresNew: true))
+            {
+                try
+                {
+                    if (input.DrugIds == null || !input.DrugIds.Any())
+                        return ApiResult.Fail("请选择要删除的药品", ResultCode.ValidationError);
+
+                    // 查询要删除的药品
+                    var drugsToDelete = await Repository.GetListAsync(d => input.DrugIds.Contains(d.Id));
+                    if (!drugsToDelete.Any())
+                        return ApiResult.Fail("未找到要删除的药品", ResultCode.NotFound);
+
+                    // 检查库存
+                    if (!input.ForceDelete)
+                    {
+                        var drugsWithStock = drugsToDelete.Where(d => d.Stock > 0).ToList();
+                        if (drugsWithStock.Any())
+                        {
+                            var drugNames = string.Join(", ", drugsWithStock.Select(d => d.DrugName));
+                            return ApiResult.Fail($"以下药品还有库存，无法删除：{drugNames}。如需强制删除，请设置ForceDelete为true", ResultCode.ValidationError);
+                        }
+                    }
+
+                    // 检查有效期
+                    var validDrugs = drugsToDelete.Where(d => d.ExpiryDate > DateTime.Now).ToList();
+                    if (validDrugs.Any() && !input.ForceDelete)
+                    {
+                        var drugNames = string.Join(", ", validDrugs.Select(d => d.DrugName));
+                        return ApiResult.Fail($"以下药品还在有效期内，无法删除：{drugNames}。如需强制删除，请设置ForceDelete为true", ResultCode.ValidationError);
+                    }
+
+                    // 执行批量删除
+                    await Repository.DeleteManyAsync(drugsToDelete);
+
+                    // 提交事务
+                    await uow.CompleteAsync();
+
+                    return ApiResult.Success(ResultCode.Success);
+                }
+                catch (Exception ex)
+                {
+                    // 事务自动回滚
+                    return ApiResult.Fail($"批量删除失败: {ex.Message}", ResultCode.Error);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 药品数据导出
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet]
+        public FileResult ExportDrugExcel()
+        {
+            // 1. 获取药品数据（包含公司名称）
+            var drugList = (from drug in Repository.GetListAsync().Result
+                            join company in GetRepository.GetListAsync().Result
+                            on drug.PharmaceuticalCompanyId equals company.Id into gj
+                            from company in gj.DefaultIfEmpty()
+                            select new DrugDto
+                            {
+                                DrugID = drug.Id,
+                                DrugName = drug.DrugName,
+                                DrugType = drug.DrugType,
+                                PharmaceuticalCompanyName = company != null ? company.CompanyName : string.Empty
+                            }).ToList();
+
+            // 2. 创建Excel对象
+            IWorkbook workbook = new XSSFWorkbook();
+            var sheet = workbook.CreateSheet("药品信息");
+
+            // 3. 创建表头
+            var row0 = sheet.CreateRow(0);
+            row0.CreateCell(0).SetCellValue("药品ID");
+            row0.CreateCell(1).SetCellValue("药品名称");
+            row0.CreateCell(2).SetCellValue("类别");
+    
+            row0.CreateCell(11).SetCellValue("药品功效");
+            row0.CreateCell(12).SetCellValue("生产厂家");
+
+            // 4. 填充数据
+            int indexnum = 1;
+            foreach (var item in drugList)
+            {
+                var row = sheet.CreateRow(indexnum);
+                row.CreateCell(0).SetCellValue(item.DrugID);
+                row.CreateCell(1).SetCellValue(item.DrugName);
+                row.CreateCell(2).SetCellValue(item.DrugType);
+           
+                row.CreateCell(11).SetCellValue(item.Effect);
+                row.CreateCell(12).SetCellValue(item.PharmaceuticalCompanyName);
+                indexnum++;
+            }
+
+            // 5. 导出为字节流
+            byte[] s;
+            using (MemoryStream ms = new MemoryStream())
+            {
+                workbook.Write(ms);
+                s = ms.ToArray();
+            }
+
+            // 6. 返回文件
+            string contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            return new FileContentResult(s, contentType)
+            {
+                FileDownloadName = "药品信息.xlsx"
+            };
         }
 
     }

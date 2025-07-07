@@ -129,6 +129,7 @@ namespace Smart_Medical.RBAC.Users
             // BUG修复：为了能在后续投影中安全地获取角色名，需要Include关联的角色数据
             queryable = queryable
                 .Include(u => u.UserRoles).ThenInclude(ur => ur.Role);
+                //.Include(x=>x.UserPatients).ThenInclude(up => up.Patient);
 
             if (!string.IsNullOrWhiteSpace(input.UserName))
             {

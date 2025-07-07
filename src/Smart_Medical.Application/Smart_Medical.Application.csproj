@@ -15,6 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="libs.XSSFWorkbook" Version="1.0.0" />
     <PackageReference Include="MD5" Version="2.2.5" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.6" />
     <PackageReference Include="Volo.Abp.Caching" Version="9.2.1" />

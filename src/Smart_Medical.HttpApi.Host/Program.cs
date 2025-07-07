@@ -29,6 +29,7 @@ public class Program
         {
             Log.Information("Starting Smart_Medical.HttpApi.Host.");
             var builder = WebApplication.CreateBuilder(args);
+
             builder.Host.AddAppSettingsSecretsJson()
                 .UseAutofac()
                 .UseSerilog();

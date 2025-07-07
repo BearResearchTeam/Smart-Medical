@@ -11,6 +11,6 @@ namespace Smart_Medical.UserLoginECC
 {
     public interface IUserLoginAsyncService : IApplicationService
     {
-        Task<ApiResult<ResultLoginDto>> LoginAsync(LoginDto loginDto);
+        Task<ApiResult<UserDto>> LoginAsync(LoginDto loginDto);
     }
 }

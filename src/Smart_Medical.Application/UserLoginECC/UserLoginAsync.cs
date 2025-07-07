@@ -1,18 +1,24 @@
 ﻿using AutoMapper.Internal.Mappers;
 using MD5Hash;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Caching.StackExchangeRedis;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Smart_Medical.Dictionarys;
 using Smart_Medical.Dictionarys.DictionaryTypes;
 using Smart_Medical.RBAC;
+using Smart_Medical.RBAC.Roles;
 using Smart_Medical.RBAC.Users;
 using Smart_Medical.Until;
+using StackExchange.Redis;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Security.Claims;
@@ -30,7 +36,7 @@ namespace Smart_Medical.UserLoginECC
     /// 用户登录
     /// </summary>
     [ApiExplorerSettings(GroupName = "用户登录")]
-    public class UserLoginAsync : ApplicationService , IUserLoginAsyncService
+    public class UserLoginAsync : ApplicationService, IUserLoginAsyncService
     {
 
         private readonly IDistributedCache<TokenPairDto> _refreshTokenCache;
@@ -38,18 +44,31 @@ namespace Smart_Medical.UserLoginECC
         private readonly IRepository<User, Guid> _userRepository;
         private readonly IConfiguration _configuration;
         private readonly JwtSecurityTokenHandler _jwtSecurityTokenHandler;
+        private readonly IDistributedCache _redisCache;
+        private readonly IRepository<Permission, Guid> _permission;
+        private readonly IRepository<RBAC.Role, Guid> _roleRepository;
+        private readonly IRepository<UserRole, Guid> _userRoleRepository;
 
         public UserLoginAsync(
-            IRepository<User, Guid> userRepository, 
-            IConfiguration configuration, 
-            IDistributedCache<TokenPairDto> refreshTokenCache, 
-            LMZTokenHelper tokenHelper)
+                IRepository<User, Guid> userRepository,
+                IConfiguration configuration,
+                IDistributedCache<TokenPairDto> refreshTokenCache,
+                IDistributedCache redisCache, // 新增
+                LMZTokenHelper tokenHelper,
+                IRepository<Permission, Guid> permission,
+                IRepository<RBAC.Role, Guid> roleRepository,
+                IRepository<UserRole, Guid> userRoleRepository
+                )
         {
             _userRepository = userRepository;
             _configuration = configuration;
             _refreshTokenCache = refreshTokenCache;
+            _redisCache = redisCache; // 新增赋值
             _tokenHelper = tokenHelper;
             _jwtSecurityTokenHandler = new JwtSecurityTokenHandler();
+            _permission = permission;
+            _roleRepository = roleRepository;
+            _userRoleRepository = userRoleRepository;
         }
 
         /// <summary>
@@ -57,7 +76,7 @@ namespace Smart_Medical.UserLoginECC
         /// </summary>
         /// <param name="loginDto"></param>
         /// <returns></returns>
-        public async Task<ApiResult<ResultLoginDto>> LoginAsync(LoginDto loginDto)
+        public async Task<ApiResult<UserDto>> LoginAsync(LoginDto loginDto)
         {
             try
             {
@@ -68,24 +87,36 @@ namespace Smart_Medical.UserLoginECC
                 // 检查用户是否存在
                 if (user == null)
                 {
-                    return ApiResult<ResultLoginDto>.Fail("用户名不存在", ResultCode.NotFound);
+                    return ApiResult<UserDto>.Fail("用户名不存在", ResultCode.NotFound);
                 }
 
                 // 验证密码
                 if (user.UserPwd != loginDto.UserPwd.GetMD5())
                 {
-                    return ApiResult<ResultLoginDto>.Fail("密码错误", ResultCode.ValidationError);
+                    return ApiResult<UserDto>.Fail("密码错误", ResultCode.ValidationError);
                 }
 
                 // 登录成功，返回用户信息
-                var userDto = ObjectMapper.Map<User, ResultLoginDto>(user);
+                var userDto = ObjectMapper.Map<User, UserDto>(user);
 
+                var quary = await _userRoleRepository.GetQueryableAsync();
+                var UserRoleName = quary.Include(x => x.User);
+
+
+
+                //权限
+                var permissiondtos = await _permission.GetQueryableAsync();
+                permissiondtos = permissiondtos.Where(x => x.Type == Enums.PermissionType.Button);
+                userDto.Permissions = permissiondtos.Select(x => x.PermissionCode).ToList();
+
+
+                //token获取
                 var tokens = await GenerateTokensAsync(user);
 
                 userDto.AccessToken = tokens.AccessToken;
                 userDto.RefreshToken = tokens.RefreshToken;
 
-                return ApiResult<ResultLoginDto>.Success(userDto, ResultCode.Success);
+                return ApiResult<UserDto>.Success(userDto, ResultCode.Success);
             }
             catch (Exception)
             {
@@ -98,7 +129,6 @@ namespace Smart_Medical.UserLoginECC
         /// </summary>
         /// <param name="user"></param>
         /// <returns></returns>
-
         public async Task<TokenPairDtos> GenerateTokensAsync(User user)
         {
             LMZTokenHelper token = new LMZTokenHelper(_configuration);
@@ -108,14 +138,13 @@ namespace Smart_Medical.UserLoginECC
             var accessTokenExpires = DateTime.UtcNow.AddMinutes(1); //10分钟有效
 
             // 2. RefreshToken
-            var refreshToken = token.CreateJwtToken(user,30);
+            var refreshToken = token.CreateJwtToken(user, 30);
             var refreshTokenExpires = DateTime.UtcNow.AddMinutes(30);
 
             var cacheKey = $"SmartMedical:RefreshToken{user.Id}";
 
             var cacheItem = new TokenPairDto
             {
-                UserNumber = user.Id,
                 RefreshToken = refreshToken,
                 RefreshTokenExpires = refreshTokenExpires
             };
@@ -158,7 +187,8 @@ namespace Smart_Medical.UserLoginECC
             }
 
             Guid userId;
-            ClaimsPrincipal principal; // 声明 principal 为 ClaimsPrincipal 类型
+            // 声明 principal 为 ClaimsPrincipal 类型
+            ClaimsPrincipal principal;
             try
             {
                 principal = _tokenHelper.GetPrincipalFromRefreshToken(input.RefreshToken);
@@ -171,7 +201,8 @@ namespace Smart_Medical.UserLoginECC
                     throw new UserFriendlyException("刷新令牌无效或无法解析用户ID", "401");
                 }
             }
-            catch (SecurityTokenExpiredException) // 专门捕获 RefreshToken 过期异常
+            // 专门捕获 RefreshToken 过期异常
+            catch (SecurityTokenExpiredException)
             {
                 throw new UserFriendlyException("刷新令牌已过期，请重新登录", "401");
             }
@@ -180,7 +211,7 @@ namespace Smart_Medical.UserLoginECC
                 Logger.LogWarning(ex, "解析刷新令牌失败: {RefreshToken}", input.RefreshToken);
                 throw new UserFriendlyException("刷新令牌无效或签名验证失败，请重新登录", "401");
             }
-                                                         
+
             var user = await _userRepository.GetAsync(userId);
             if (user == null)
             {
@@ -199,5 +230,74 @@ namespace Smart_Medical.UserLoginECC
 
             return resultDto;
         }
+
+        /// <summary>
+        /// 用户登出（将当前 Token 加入黑名单）
+        /// </summary>
+        /// <param name="input">包含刷新 Token 的请求 DTO</param>
+        /// <returns>登出操作的 API 返回结果</returns>
+        public async Task<ApiResult> Logout(RefreshTokenRequestDto input)
+        {
+            try
+            {
+                //  从请求中获取 AccessToken
+                var accessToken = input.RefreshToken;
+
+                // 检查是否为空
+                if (string.IsNullOrWhiteSpace(accessToken))
+                {
+                    return ApiResult.Fail("未提供有效的 Token", ResultCode.Error);
+                }
+
+                //  创建 JWT 解析器，用于解密并读取 Token 内容
+                var handler = new JwtSecurityTokenHandler();
+
+                //  判断 token 格式是否合法
+                if (!handler.CanReadToken(accessToken))
+                {
+                    return ApiResult.Fail("无效的 Token", ResultCode.Error);
+                }
+
+                // 解读 Token，拿到里面的 Claims 信息（JWT载荷部分）
+                var token = handler.ReadJwtToken(accessToken);
+
+                var principal = _tokenHelper.GetPrincipalFromRefreshToken(accessToken);
+                var jti = principal.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
+
+                // 获取 Exp（过期时间戳），转为 UTC 时间
+                var expUnix = long.Parse(token.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Exp)?.Value ?? "0");
+                var expTime = DateTimeOffset.FromUnixTimeSeconds(expUnix).UtcDateTime;
+
+                //计算 Token 剩余生存时间（用于设置 Redis 黑名单 TTL）
+                var ttl = expTime - DateTime.UtcNow;
+
+                // 若没有 JTI，无法进行黑名单标记，直接失败返回
+                if (string.IsNullOrWhiteSpace(jti))
+                {
+                    return ApiResult.Fail("Token 中缺少 jti", ResultCode.NotFound);
+                }
+
+                //构造 Redis 黑名单 Key 和 Value
+                var cacheKey = $"blacklist:token:{jti}";     // 黑名单 Key，用 JTI 做标识
+                var cacheItem = "blacklisted";
+
+                // 将该 Token JTI 写入 Redis，设置过期时间为 Token 剩余有效时间
+                await _redisCache.SetStringAsync(cacheKey, cacheItem, new DistributedCacheEntryOptions
+                {
+                    //过期时间
+                    AbsoluteExpirationRelativeToNow = ttl > TimeSpan.Zero ? ttl : TimeSpan.FromMinutes(1)
+                });
+
+                //返回成功结果
+                return ApiResult.Success(ResultCode.Success);
+            }
+            catch (Exception ex)
+            {
+                // 捕获异常，包一层更具体的上下文信息
+                throw new Exception("登出异常", ex);
+            }
+        }
+
+
     }
 }

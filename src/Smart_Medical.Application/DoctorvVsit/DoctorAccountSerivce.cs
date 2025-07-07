@@ -172,5 +172,50 @@ namespace Smart_Medical.DoctorvVsit
             await doctorredis.RemoveAsync(CacheKey);
             return ApiResult.Success(ResultCode.Success);
         }
+
+        /// <summary>
+        /// 查询全部科室
+        /// </summary>
+        public async Task<ApiResult<List<DoctorDepartDto>>> GetAllDepartmentsAsync()
+        {
+            try
+            {
+                var departments = await dept.GetListAsync();
+                var result = departments.Select(d => new DoctorDepartDto
+                {
+                    Id = d.Id,
+                    DepartmentName = d.DepartmentName
+                }).ToList();
+                return ApiResult<List<DoctorDepartDto>>.Success(result, ResultCode.Success);
+            }
+            catch (Exception)
+            {
+
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// 根据科室 ID 查询医生列表
+        /// </summary>
+        /// <param name="departmentId">科室 ID</param>
+        public async Task<ApiResult<List<DoctorListDto>>> GetDoctorsByDepartmentIdAsync(Guid departmentId)
+        {
+            try
+            {
+                var doctorList = await doctors.GetListAsync(d => d.DepartmentId == departmentId && d.IsActive);
+                var result = doctorList.Select(d => new DoctorListDto
+                {
+                    Id = d.Id,
+                    EmployeeName = d.EmployeeName
+                }).ToList();
+                return ApiResult<List<DoctorListDto>>.Success(result, ResultCode.Success);
+            }
+            catch (Exception)
+            {
+
+                throw;
+            }
+        }
     }
 }

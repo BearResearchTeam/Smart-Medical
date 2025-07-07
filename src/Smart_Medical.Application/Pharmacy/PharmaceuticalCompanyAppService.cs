@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Smart_Medical.Until;
+
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -36,7 +37,7 @@ namespace Smart_Medical.Pharmacy
 
                 if (companies != null)
                 {
-                    return ApiResult.Success(ResultCode.NotFound);
+                    return ApiResult.Fail("未找到公司数据", ResultCode.NotFound);
                 }
 
                 var result = ObjectMapper.Map<List<MedicalHistory>, List<PharmaceuticalCompanyDto>>(companies);
@@ -47,7 +48,6 @@ namespace Smart_Medical.Pharmacy
                 return ApiResult.Fail($"查询公司失败: {ex.Message}", ResultCode.Error);
             }
         }
-
         /// <summary>
         /// 获取所有公司列表
         /// </summary>
@@ -57,12 +57,11 @@ namespace Smart_Medical.Pharmacy
         {
             try
             {
-                // 获取所有公司列表
                 var companies = await _repository.GetListAsync();
 
                 if (companies != null)
                 {
-                    return ApiResult.Success(ResultCode.NotFound);
+                    return ApiResult.Fail("未找到公司数据", ResultCode.NotFound);
                 }
 
                 var result = ObjectMapper.Map<List<MedicalHistory>, List<PharmaceuticalCompanyDto>>(companies);
@@ -91,5 +90,7 @@ namespace Smart_Medical.Pharmacy
                 return ApiResult.Fail($"新增公司失败: {ex.Message}", ResultCode.Error);
             }
         }
+
+
     }
 }

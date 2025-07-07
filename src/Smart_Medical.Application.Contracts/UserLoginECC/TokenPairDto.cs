@@ -8,7 +8,6 @@ namespace Smart_Medical.UserLoginECC
 {
     public class TokenPairDto
     {       
-        public Guid UserNumber { get; set; } = Guid.Empty;
         /// <summary>
         /// 刷新令牌（Refresh Token），用于在 Access Token 过期后换取新 Token
         /// </summary>

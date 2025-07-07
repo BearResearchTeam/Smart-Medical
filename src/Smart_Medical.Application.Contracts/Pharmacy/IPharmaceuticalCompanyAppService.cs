@@ -33,5 +33,6 @@ namespace Smart_Medical.Pharmacy
         /// <param name="input">制药公司信息</param>
         /// <returns></returns>
         Task<ApiResult> CreateAsync(CreateUpdatePharmaceuticalCompanyDto input);
+  
     }
 }

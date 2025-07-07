@@ -9,6 +9,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+
 namespace Smart_Medical
 {
     public class LMZTokenHelper
@@ -55,9 +56,10 @@ namespace Smart_Medical
                         audience: _configuration["Jwt:Audience"],//接收者
                         claims: claimList,//存放的用户信息
                         notBefore: beijingTime,//发布时间
-                        expires: beijingTime.AddMinutes(0.5),//有效期设置
+                        //当前为20秒过期，测试
+                        expires: beijingTime.AddSeconds(20),//有效期设置
                         signingCredentials: signingCredentials//数字签名
-                    );
+                    ); 
 
                 // 6. 拼接JWT的各个部分
                 string tokenStr = new JwtSecurityTokenHandler().WriteToken(token);
@@ -69,7 +71,6 @@ namespace Smart_Medical
                 throw new Exception($"创建加密JwtToken{ex.Message}");
             }
         }
-
 
         /// <summary>
         /// 创建加密JwtToken
@@ -97,7 +98,6 @@ namespace Smart_Medical
                 // 5. 创建签名凭证，告诉JWT“用这个密钥和这个算法签名”
                 var signingCredentials = new SigningCredentials(signingKey, signingAlgorithm);
 
-
                 var beijingTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "China Standard Time");
                 // 6. 准备“身份信息”（Claims）准备“签名秘钥和算法”
                 var token = new JwtSecurityToken(
@@ -119,7 +119,6 @@ namespace Smart_Medical
                 throw new Exception($"创建加密JwtToken{ex.Message}");
             }
         }
-
 
         /// <summary>
         /// 创建包含用户信息的Claim列表
@@ -150,7 +149,7 @@ namespace Smart_Medical
 
                 // 添加一个随机的 Claim（保证 token 每次都不同）
                 claims.Add(new Claim("LoginSessionId", Guid.NewGuid().ToString()));
-
+                claims.Add(new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()));
                 // 加入签发时间
                 claims.Add(new Claim("IssuedAt", DateTime.UtcNow.ToString("o"))); // ISO 8601 格式
 
@@ -210,32 +209,57 @@ namespace Smart_Medical
         }
 
         /// <summary>
-        /// 
+        /// 从刷新令牌中提取用户声明信息（ClaimsPrincipal）
+        /// 不会验证 Token 是否过期，只验证签名和 Issuer、Audience 等
         /// </summary>
-        /// <param name="token"></param>
-        /// <returns></returns>
-        /// <exception cref="SecurityTokenException"></exception>
+        /// <param name="token">客户端传来的 JWT Refresh Token</param>
+        /// <returns>解析出来的 ClaimsPrincipal（包含用户身份声明）</returns>
+        /// <exception cref="SecurityTokenException">当 Token 签名无效或格式错误时抛出异常</exception>
         public ClaimsPrincipal GetPrincipalFromRefreshToken(string token)
         {
-            var tokenValidationParameters = new TokenValidationParameters
+            try
             {
-                ValidateAudience = true,
-                ValidAudience = _configuration["Jwt:Audience"],
-                ValidateIssuer = true,
-                ValidIssuer = _configuration["Jwt:Issuer"],
-                ValidateIssuerSigningKey = true,
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:SecretKey"])),
-                ValidateLifetime = false
-            };
+                // 创建一个 Token 验证参数对象
+                var tokenValidationParameters = new TokenValidationParameters
+                {
+                    // 验证 Audience（受众，即这个 token 是发给谁的）
+                    ValidateAudience = true,
+                    ValidAudience = _configuration["Jwt:Audience"],
 
-            SecurityToken securityToken;
-            var principal = _jwtSecurityTokenHandler.ValidateToken(token, tokenValidationParameters, out securityToken);
+                    // 验证 Issuer（发行者，即这个 token 是谁签发的）
+                    ValidateIssuer = true,
+                    ValidIssuer = _configuration["Jwt:Issuer"],
 
-            if (!(securityToken is JwtSecurityToken jwtSecurityToken) || !jwtSecurityToken.Header.Alg.Equals(SecurityAlgorithms.HmacSha256, StringComparison.InvariantCultureIgnoreCase))
-            {
-                throw new SecurityTokenException("无效的刷新令牌或签名不匹配。");
+                    // 验证签名（确保 token 没被篡改）
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(
+                        Encoding.UTF8.GetBytes(_configuration["Jwt:SecretKey"])),
+
+                    // 不验证过期时间（因为 RefreshToken 可能要手动控制）
+                    ValidateLifetime = false
+                };
+
+                SecurityToken securityToken;
+
+                // 使用 JwtSecurityTokenHandler 验证并解析 token
+                var principal = _jwtSecurityTokenHandler.ValidateToken(token, tokenValidationParameters, out securityToken);
+
+                // 确保解析出来的是合法的 JwtSecurityToken 且算法为 HmacSha256（防止算法攻击）
+                if (!(securityToken is JwtSecurityToken jwtSecurityToken) ||
+                    !jwtSecurityToken.Header.Alg.Equals(SecurityAlgorithms.HmacSha256, StringComparison.InvariantCultureIgnoreCase))
+                {
+                    throw new SecurityTokenException("无效的刷新令牌或签名不匹配。");
+                }
+
+                // 返回解析出来的用户身份信息（可用于获取 Claims，例如 sub、jti、role 等）
+                return principal;
             }
-            return principal;
+            catch (Exception)
+            {
+                // 捕获异常直接抛出（可以根据需要改成日志记录等）
+                throw;
+            }
         }
+
     }
 }

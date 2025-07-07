@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -12,6 +13,10 @@ namespace Smart_Medical.Pharmacy
     /// </summary>
     public class DrugDto 
     {
+        /// <summary>
+        /// 
+        /// </summary>
+        public int DrugID { get; set; }
         /// <summary>
         /// 药品名称
         /// </summary>
@@ -85,6 +90,12 @@ namespace Smart_Medical.Pharmacy
         /// <summary>
         ///  供应商ID
         /// </summary>
-        public Guid? PharmaceuticalCompanyId { get; set; } 
+        public Guid? PharmaceuticalCompanyId { get; set; }
+        /// <summary>
+        /// 公司名称////
+        /// </summary>
+        [Required]
+        [StringLength(128)]
+        public string PharmaceuticalCompanyName { get; set; }
     }
 }

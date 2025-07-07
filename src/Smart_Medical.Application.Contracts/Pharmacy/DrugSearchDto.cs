@@ -58,6 +58,6 @@ namespace Smart_Medical.Pharmacy
         /// 每页大小 (默认为10)
         /// </summary>
         [DefaultValue(10)]
-        public int pageSize { get; set; } = 10;
+        public int pageSize { get; set; } = 5;
     }
 } 
