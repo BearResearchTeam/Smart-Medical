@@ -15,6 +15,11 @@ namespace Smart_Medical.Prescriptions
         [Required]
         [StringLength(50)]
         public string PrescriptionName { get; set; }
+
+        /// <summary>
+        /// 药品信息id  此处方下所有药品的ID集合
+        /// </summary>
+        public string DrugIds { get; set; }
         /// <summary>
         /// 父级Id
         /// </summary>
