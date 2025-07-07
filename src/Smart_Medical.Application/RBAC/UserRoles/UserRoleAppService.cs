@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Smart_Medical.RBAC.Roles;
@@ -8,9 +9,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Volo.Abp.Application.Services;
+using Volo.Abp.DependencyInjection;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Uow;
-using Volo.Abp.DependencyInjection;
 
 namespace Smart_Medical.RBAC.UserRoles
 {
@@ -19,6 +20,7 @@ namespace Smart_Medical.RBAC.UserRoles
     /// </summary>
     [ApiExplorerSettings(GroupName = "用户角色关联管理")]
     [Dependency(ReplaceServices = true)]
+    [Authorize]
     public class UserRoleAppService : ApplicationService, IUserRoleAppService
     {
         private readonly IRepository<UserRole, Guid> _userRoleRepository;
@@ -197,7 +199,7 @@ namespace Smart_Medical.RBAC.UserRoles
                         UserPhone = ur.User!.UserPhone,
                         UserSex = ur.User!.UserSex,
                         // 此处的UserDto中的RoleName可以从当前UserRole关联的Role中获取
-                        RoleName = ur.Role!.RoleName
+                        RoleName = new List<string> { ur.Role.RoleName }
                     },
                     Role = new RoleDto
                     {
