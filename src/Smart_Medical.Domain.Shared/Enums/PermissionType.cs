@@ -21,7 +21,7 @@ namespace Smart_Medical.Enums
         Button = 1,
 
         /// <summary>
-        /// 其他操作权限（例如API访问权限等）
+        /// 页面隐藏菜单
         /// </summary>
         Operation = 2
     }

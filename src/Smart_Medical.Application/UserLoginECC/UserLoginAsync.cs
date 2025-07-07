@@ -98,16 +98,24 @@ namespace Smart_Medical.UserLoginECC
 
                 // 登录成功，返回用户信息
                 var userDto = ObjectMapper.Map<User, UserDto>(user);
+                //userDto.RoleName = null;
 
-                var quary = await _userRoleRepository.GetQueryableAsync();
-                var UserRoleName = quary.Include(x => x.User);
+                // 获取用户角色
+                //var quary = await _userRoleRepository.GetQueryableAsync();
+                //var RoleId = quary.Include(x => x.Role).Where(x=>x.UserId== userDto.Id).Select(x=>x.RoleId);
 
+                userDto.RoleName = await _userRoleRepository.GetQueryableAsync()
+                                .ContinueWith(t => t.Result //ContinueWith 用于“前一个任务完成后，继续执行下一个任务”，实现任务的链式编排和回调处理。
+                                .Where(x => x.UserId == userDto.Id)
+                                .Include(x => x.Role)
+                                .Select(x => x.Role.RoleName)
+                                .ToList());
 
 
                 //权限
-                var permissiondtos = await _permission.GetQueryableAsync();
-                permissiondtos = permissiondtos.Where(x => x.Type == Enums.PermissionType.Button);
-                userDto.Permissions = permissiondtos.Select(x => x.PermissionCode).ToList();
+                /*  var permissiondtos = await _permission.GetQueryableAsync();
+                  permissiondtos = permissiondtos.Where(x => x.Type == Enums.PermissionType.Button);
+                  userDto.Permissions = permissiondtos.Select(x => x.PermissionCode).ToList();*/
 
 
                 //token获取
@@ -115,7 +123,8 @@ namespace Smart_Medical.UserLoginECC
 
                 userDto.AccessToken = tokens.AccessToken;
                 userDto.RefreshToken = tokens.RefreshToken;
-
+                userDto.AccessTokenExpires = tokens.AccessTokenExpires;
+                userDto.RefreshTokenExpires = tokens.RefreshTokenExpires;
                 return ApiResult<UserDto>.Success(userDto, ResultCode.Success);
             }
             catch (Exception)
@@ -135,11 +144,11 @@ namespace Smart_Medical.UserLoginECC
 
             // 1. AccessToken
             var accessToken = token.CreateJwtToken(user);
-            var accessTokenExpires = DateTime.UtcNow.AddMinutes(1); //10分钟有效
+            var accessTokenExpires = DateTime.UtcNow.AddMinutes(10); //10分钟有效
 
             // 2. RefreshToken
             var refreshToken = token.CreateJwtToken(user, 30);
-            var refreshTokenExpires = DateTime.UtcNow.AddMinutes(30);
+            var refreshTokenExpires = DateTime.UtcNow.AddDays(7);//7天过期
 
             var cacheKey = $"SmartMedical:RefreshToken{user.Id}";
 
