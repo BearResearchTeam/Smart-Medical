@@ -15,7 +15,7 @@ using Volo.Abp.Domain.Repositories;
 namespace Smart_Medical.Dictionarys
 {
     /// <summary>
-    /// 字典类型
+    /// 字典类型/字典项
     /// </summary>
     [ApiExplorerSettings(GroupName = "字典管理")]
     public class DictionaryTypeService : ApplicationService, IDictionaryTypeService

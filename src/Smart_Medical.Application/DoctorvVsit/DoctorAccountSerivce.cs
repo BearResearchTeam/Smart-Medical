@@ -14,6 +14,9 @@ using Volo.Abp.Domain.Repositories;
 
 namespace Smart_Medical.DoctorvVsit
 {
+    /// <summary>
+    /// 医生管理
+    /// </summary>
     [ApiExplorerSettings(GroupName = "医生管理")]
     public class DoctorAccountSerivce:ApplicationService,IDoctorAccountSerivce
     {

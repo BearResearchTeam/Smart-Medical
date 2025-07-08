@@ -139,7 +139,7 @@ namespace Smart_Medical.RBAC.Permissions
                     Icon = p.Icon,
                     // 4. 查找该顶级菜单下的所有子菜单（ParentId==当前菜单Id，且&& x.Type == PermissionType.Menu）
                     Children = permissionEntityList
-                        .Where(x => x.ParentId == p.Id && x.Type == PermissionType.Menu)
+                        .Where(x => x.ParentId == p.Id)
                         .Select(x => new GetMenuPermissionTree
                         {
                             Id = x.Id,
