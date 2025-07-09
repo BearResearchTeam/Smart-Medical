@@ -27,7 +27,7 @@ namespace Smart_Medical.Prescriptions
         [Required]
         public int ParentId { get; set; }
         /// <summary>
-        /// 药品名称s
+        /// 药品名称
         /// </summary>
         [Required]
         [StringLength(128)]

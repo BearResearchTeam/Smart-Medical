@@ -52,7 +52,6 @@ namespace Smart_Medical.Medical
         /// <summary>
         /// 分页获取病历列表
         /// </summary>
-        /// <param name="input">查询参数</param>
         /// <returns></returns>
         [HttpGet]
         public async Task<ApiResult<PagedResultDto<SickDto>>> GetListAsync([FromQuery] SickSearchDto search)

@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Smart_Medical.Pharmacy;
 using Smart_Medical.Until;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -68,12 +69,65 @@ namespace Smart_Medical.Prescriptions
             }
             return result;
         }
-        //public async Task<ApiResult<List<GetPrescriptionDrugDto>>> GetPrescriptionTreeList(int prescriptionid)
-        //{
-        //    var prelist = await pres.GetQueryableAsync();
-        //    var druglist = await drogrepository.GetQueryableAsync();
+        /// <summary>
+        /// 获取处方树对应的药品信息列表
+        /// </summary>
+        /// <param name="prescriptionid"></param>
+        /// <returns></returns>
+       
+        public async Task<ApiResult<List<GetPrescriptionDrugDto>>> GetPrescriptionTreeList(int prescriptionid)
+        {
+            var prelist = await pres.GetQueryableAsync();
+            var druglist = await drogrepository.GetQueryableAsync();
 
-        //}
+            // 只取指定处方
+            var prescription = prelist.FirstOrDefault(x => x.Id == prescriptionid);
+            if (prescription == null)
+            {
+                return ApiResult<List<GetPrescriptionDrugDto>>.Fail("未找到处方", ResultCode.NotFound);
+            }
+
+            // 处理DrugIds
+            var drugIds = (prescription.DrugIds ?? "")
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(id => int.TryParse(id, out var gid) ? (int?)gid : null)
+                .Where(gid => gid != null)
+                .ToList();
+
+            // 查询药品
+            var drugs = druglist.Where(d => drugIds.Contains(d.Id)).ToList();
+
+            // 映射为DTO
+            var result = drugs.Select(d =>
+            {
+                var dto = new GetPrescriptionDrugDto
+                {
+                    // 这里根据你的Drug实体和GetPrescriptionDrugDto字段一一赋值
+                    PrescriptionName = prescription.PrescriptionName,
+                    DrugIds = prescription.DrugIds,
+                    ParentId = prescription.ParentId,
+                    DrugName = d.DrugName,
+                    DrugType = d.DrugType,
+                    FeeName = d.FeeName,
+                    DosageForm = d.DosageForm,
+                    Specification = d.Specification,
+                    PurchasePrice = d.PurchasePrice,
+                    SalePrice = d.SalePrice,
+                    Stock = d.Stock,
+                    StockUpper = d.StockUpper,
+                    StockLower = d.StockLower,
+                    ProductionDate = d.ProductionDate,
+                    ExpiryDate = d.ExpiryDate,
+                    Effect = d.Effect,
+                    Category = d.Category,
+                    PharmaceuticalCompanyId = d.PharmaceuticalCompanyId,
+                    // 其他字段根据需要赋值
+                };
+                return dto;
+            }).ToList();
+
+            return ApiResult<List<GetPrescriptionDrugDto>>.Success(result, ResultCode.Success);
+        }
 
         /// <summary>
         /// 根据不同的处方父级id，返回不同的处方对应的信息
