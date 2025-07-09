@@ -10,6 +10,7 @@ namespace Smart_Medical.Prescriptions
 {
     public class GetPrescriptionDrugDto
     {
+        public int Id { get; set; }
         /// <summary>
         /// 处方名称
         /// </summary>

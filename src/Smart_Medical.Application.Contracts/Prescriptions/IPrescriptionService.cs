@@ -13,8 +13,9 @@ namespace Smart_Medical.Prescriptions
     /// </summary>
     public interface IPrescriptionService : IApplicationService
     {
+        Task<ApiResult<List<DrugsSelectDto>>> GetDrugSelect();
         Task<ApiResult> CreateAsync(PrescriptionDto input);
         Task<ApiResult<List<PrescriptionTree>>> GetPrescriptionTree(int pid);
-        Task<ApiResult<List<GetPrescriptionDrugDto>>> GetPrescriptionTreeList(int? prescriptionid);
+        Task<ApiResult<List<GetPrescriptionDrugDto>>> GetPrescriptionTreeList(int? prescriptionid, string? PrescriptionName);
     }
 }

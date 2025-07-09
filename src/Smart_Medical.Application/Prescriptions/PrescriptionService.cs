@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Volo.Abp.Application.Services;
 using Volo.Abp.DependencyInjection;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.ObjectMapping;
 
 namespace Smart_Medical.Prescriptions
 {
@@ -20,10 +21,21 @@ namespace Smart_Medical.Prescriptions
         private readonly IRepository<Prescription, int> pres;
         private readonly IRepository<Drug, int> drogrepository;
 
-        public PrescriptionService(IRepository<Prescription, int> pres,IRepository<Drug, int> drogrepository)
+        public PrescriptionService(IRepository<Prescription, int> pres, IRepository<Drug, int> drogrepository)
         {
             this.pres = pres;
             this.drogrepository = drogrepository;
+        }
+        /// <summary>
+        /// 获取处方药品信息
+        /// </summary>
+        /// <param name="input"></param>
+        /// <returns></returns>
+        public async Task<ApiResult<List<DrugsSelectDto>>> GetDrugSelect()
+        {
+            var list = await drogrepository.GetQueryableAsync();
+            var dto = ObjectMapper.Map<List<Drug>, List<DrugsSelectDto>>(list.ToList());
+            return ApiResult<List<DrugsSelectDto>>.Success(dto, ResultCode.Success);
         }
         /// <summary>
         /// 创建新的处方模板
@@ -34,7 +46,6 @@ namespace Smart_Medical.Prescriptions
         {
             var res = ObjectMapper.Map<PrescriptionDto, Prescription>(input);
             res = await pres.InsertAsync(res);
-            //var prescription = await pres.InsertAsync(input);
             return ApiResult.Success(ResultCode.Success);
 
         }
@@ -75,11 +86,12 @@ namespace Smart_Medical.Prescriptions
         /// <param name="prescriptionid"></param>
         /// <returns></returns>
 
-        public async Task<ApiResult<List<GetPrescriptionDrugDto>>> GetPrescriptionTreeList(int? prescriptionid)
+        public async Task<ApiResult<List<GetPrescriptionDrugDto>>> GetPrescriptionTreeList(int? prescriptionid, string? DrugName)
         {
             var prelist = await pres.GetQueryableAsync();
-            var druglist = await drogrepository.GetQueryableAsync();
 
+            var druglist = await drogrepository.GetQueryableAsync();
+            druglist = druglist.WhereIf(!string.IsNullOrEmpty(DrugName), x => x.DrugName == DrugName);
             List<GetPrescriptionDrugDto> result = new List<GetPrescriptionDrugDto>();
 
             // 如果 prescriptionid 为空或为0，返回所有处方下的所有药品
@@ -105,6 +117,7 @@ namespace Smart_Medical.Prescriptions
 
                 result.AddRange(drugs.Select(d => new GetPrescriptionDrugDto
                 {
+                    Id = prescription.Id,
                     PrescriptionName = prescription.PrescriptionName,
                     DrugIds = prescription.DrugIds,
                     ParentId = prescription.ParentId,
@@ -128,7 +141,18 @@ namespace Smart_Medical.Prescriptions
 
             return ApiResult<List<GetPrescriptionDrugDto>>.Success(result, ResultCode.Success);
         }
-
+        /// <summary>
+        /// 获取处方列表
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        public async Task<ApiResult> DeletePre(int id)
+        {
+            var prescription = await pres.GetQueryableAsync();
+            prescription = prescription.Where(x => x.Id == id);
+            await pres.DeleteAsync(id);
+            return ApiResult.Success(ResultCode.Success);
+        }
 
         /// <summary>
         /// 根据不同的处方父级id，返回不同的处方对应的信息

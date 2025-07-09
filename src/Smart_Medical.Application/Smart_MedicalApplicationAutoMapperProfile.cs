@@ -70,8 +70,8 @@ public class Smart_MedicalApplicationAutoMapperProfile : Profile
 
         //处方
         CreateMap<PrescriptionDto, Prescription>().ReverseMap();
-        CreateMap<CreateUpdateMedicationDto, Medication>();
-        CreateMap<Medication, MedicationDto>().ReverseMap();
+        CreateMap<DrugsSelectDto, Drug>().ReverseMap();
+
         #region 
 
         CreateMap<DoctorClinic, InsertPatientDto>().ReverseMap();
