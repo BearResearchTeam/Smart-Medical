@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Smart_Medical.Pharmacy;
 using Smart_Medical.Until;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -16,21 +18,17 @@ namespace Smart_Medical.Prescriptions
     public class PrescriptionService : ApplicationService, IPrescriptionService
     {
         private readonly IRepository<Prescription, int> pres;
+        private readonly IRepository<Drug, int> drogrepository;
 
-        public PrescriptionService(IRepository<Prescription, int> pres)
+        public PrescriptionService(IRepository<Prescription, int> pres,IRepository<Drug, int> drogrepository)
         {
             this.pres = pres;
+            this.drogrepository = drogrepository;
         }
         /// <summary>
-        /// 创建处方
+        /// 创建新的处方模板
         /// Create a prescription
         /// </summary>
-        /// <remarks>
-        /// POST /api/app/prescriptions/prescription
-        /// 创建新的处方模板。
-        /// </remarks>
-        /// <param name="input">处方参数</param>
-        /// <returns>操作结果</returns>
         [HttpPost]
         public async Task<ApiResult> CreateAsync(PrescriptionDto input)
         {
@@ -42,14 +40,8 @@ namespace Smart_Medical.Prescriptions
         }
         /// <summary>
         /// 获取处方树
-        /// Get prescription tree
         /// </summary>
         /// <remarks>
-        /// POST /api/app/prescriptions/prescription-tree
-        /// 获取所有处方的树形结构。
-        /// </remarks>
-        /// <param name="pid">父级ID</param>
-        /// <returns>处方树</returns>
         [HttpPost]
         public async Task<ApiResult<List<PrescriptionTree>>> GetPrescriptionTree(int pid)
         {
@@ -78,15 +70,68 @@ namespace Smart_Medical.Prescriptions
             return result;
         }
         /// <summary>
-        /// 根据不同的处方父级id，返回不同的处方对应的信息
-        /// Get prescriptions by parent id
+        /// 获取处方树对应的药品信息列表
         /// </summary>
-        /// <remarks>
-        /// GET /api/app/prescriptions/start-prescriptions?pid={pid}
-        /// 根据父级ID获取对应的处方信息。
-        /// </remarks>
-        /// <param name="pid">父级ID</param>
-        /// <returns>处方列表</returns>
+        /// <param name="prescriptionid"></param>
+        /// <returns></returns>
+       
+        public async Task<ApiResult<List<GetPrescriptionDrugDto>>> GetPrescriptionTreeList(int prescriptionid)
+        {
+            var prelist = await pres.GetQueryableAsync();
+            var druglist = await drogrepository.GetQueryableAsync();
+
+            // 只取指定处方
+            var prescription = prelist.FirstOrDefault(x => x.Id == prescriptionid);
+            if (prescription == null)
+            {
+                return ApiResult<List<GetPrescriptionDrugDto>>.Fail("未找到处方", ResultCode.NotFound);
+            }
+
+            // 处理DrugIds
+            var drugIds = (prescription.DrugIds ?? "")
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(id => int.TryParse(id, out var gid) ? (int?)gid : null)
+                .Where(gid => gid != null)
+                .ToList();
+
+            // 查询药品
+            var drugs = druglist.Where(d => drugIds.Contains(d.Id)).ToList();
+
+            // 映射为DTO
+            var result = drugs.Select(d =>
+            {
+                var dto = new GetPrescriptionDrugDto
+                {
+                    // 这里根据你的Drug实体和GetPrescriptionDrugDto字段一一赋值
+                    PrescriptionName = prescription.PrescriptionName,
+                    DrugIds = prescription.DrugIds,
+                    ParentId = prescription.ParentId,
+                    DrugName = d.DrugName,
+                    DrugType = d.DrugType,
+                    FeeName = d.FeeName,
+                    DosageForm = d.DosageForm,
+                    Specification = d.Specification,
+                    PurchasePrice = d.PurchasePrice,
+                    SalePrice = d.SalePrice,
+                    Stock = d.Stock,
+                    StockUpper = d.StockUpper,
+                    StockLower = d.StockLower,
+                    ProductionDate = d.ProductionDate,
+                    ExpiryDate = d.ExpiryDate,
+                    Effect = d.Effect,
+                    Category = d.Category,
+                    PharmaceuticalCompanyId = d.PharmaceuticalCompanyId,
+                    // 其他字段根据需要赋值
+                };
+                return dto;
+            }).ToList();
+
+            return ApiResult<List<GetPrescriptionDrugDto>>.Success(result, ResultCode.Success);
+        }
+
+        /// <summary>
+        /// 根据不同的处方父级id，返回不同的处方对应的信息
+        /// </summary>
         [HttpGet]
         public async Task<ApiResult<List<PrescriptionDto>>> StartPrescriptions(int pid)
         {

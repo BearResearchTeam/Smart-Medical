@@ -13,5 +13,6 @@ namespace Smart_Medical.RBAC.RolePermissions
         // 导航属性的DTO，用于展示关联的角色和权限信息
         public RoleDto Role { get; set; }
         public PermissionDto Permission { get; set; }
+
     }
 }

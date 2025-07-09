@@ -24,9 +24,7 @@ namespace Smart_Medical.Prescriptions
         /// <summary>
         /// 药品信息id  此处方下所有药品的ID集合
         /// </summary>
-        public string DrugIds { get; set; }
-
-
+        public string? DrugIds { get; set; }=string.Empty;
 
         /// <summary>
         /// 父级Id   1中药和2西药
