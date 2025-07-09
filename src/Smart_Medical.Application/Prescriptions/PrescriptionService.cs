@@ -74,35 +74,37 @@ namespace Smart_Medical.Prescriptions
         /// </summary>
         /// <param name="prescriptionid"></param>
         /// <returns></returns>
-       
-        public async Task<ApiResult<List<GetPrescriptionDrugDto>>> GetPrescriptionTreeList(int prescriptionid)
+
+        public async Task<ApiResult<List<GetPrescriptionDrugDto>>> GetPrescriptionTreeList(int? prescriptionid)
         {
             var prelist = await pres.GetQueryableAsync();
             var druglist = await drogrepository.GetQueryableAsync();
 
-            // 只取指定处方
-            var prescription = prelist.FirstOrDefault(x => x.Id == prescriptionid);
-            if (prescription == null)
+            List<GetPrescriptionDrugDto> result = new List<GetPrescriptionDrugDto>();
+
+            // 如果 prescriptionid 为空或为0，返回所有处方下的所有药品
+            var prescriptions = (prescriptionid == null || prescriptionid == 0)
+                ? prelist.ToList()
+                : prelist.Where(x => x.Id == prescriptionid.Value).ToList();
+
+            if (prescriptions == null || prescriptions.Count == 0)
             {
                 return ApiResult<List<GetPrescriptionDrugDto>>.Fail("未找到处方", ResultCode.NotFound);
             }
 
-            // 处理DrugIds
-            var drugIds = (prescription.DrugIds ?? "")
-                .Split(',', StringSplitOptions.RemoveEmptyEntries)
-                .Select(id => int.TryParse(id, out var gid) ? (int?)gid : null)
-                .Where(gid => gid != null)
-                .ToList();
-
-            // 查询药品
-            var drugs = druglist.Where(d => drugIds.Contains(d.Id)).ToList();
-
-            // 映射为DTO
-            var result = drugs.Select(d =>
+            foreach (var prescription in prescriptions)
             {
-                var dto = new GetPrescriptionDrugDto
+                var drugIds = (prescription.DrugIds ?? "")
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(id => int.TryParse(id, out var gid) ? (int?)gid : null)
+                    .Where(gid => gid != null)
+                    .Select(gid => gid.Value)
+                    .ToList();
+
+                var drugs = druglist.Where(d => drugIds.Contains(d.Id)).ToList();
+
+                result.AddRange(drugs.Select(d => new GetPrescriptionDrugDto
                 {
-                    // 这里根据你的Drug实体和GetPrescriptionDrugDto字段一一赋值
                     PrescriptionName = prescription.PrescriptionName,
                     DrugIds = prescription.DrugIds,
                     ParentId = prescription.ParentId,
@@ -121,13 +123,12 @@ namespace Smart_Medical.Prescriptions
                     Effect = d.Effect,
                     Category = d.Category,
                     PharmaceuticalCompanyId = d.PharmaceuticalCompanyId,
-                    // 其他字段根据需要赋值
-                };
-                return dto;
-            }).ToList();
+                }));
+            }
 
             return ApiResult<List<GetPrescriptionDrugDto>>.Success(result, ResultCode.Success);
         }
+
 
         /// <summary>
         /// 根据不同的处方父级id，返回不同的处方对应的信息

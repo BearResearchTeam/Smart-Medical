@@ -15,5 +15,6 @@ namespace Smart_Medical.Prescriptions
     {
         Task<ApiResult> CreateAsync(PrescriptionDto input);
         Task<ApiResult<List<PrescriptionTree>>> GetPrescriptionTree(int pid);
+        Task<ApiResult<List<GetPrescriptionDrugDto>>> GetPrescriptionTreeList(int? prescriptionid);
     }
 }
