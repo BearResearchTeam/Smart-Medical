@@ -20,7 +20,7 @@ namespace Smart_Medical.RBAC.UserRoles
     /// </summary>
     [ApiExplorerSettings(GroupName = "用户角色关联管理")]
     [Dependency(ReplaceServices = true)]
-    //[Authorize]
+    [Authorize]
     public class UserRoleAppService : ApplicationService, IUserRoleAppService
     {
         private readonly IRepository<UserRole, Guid> _userRoleRepository;
