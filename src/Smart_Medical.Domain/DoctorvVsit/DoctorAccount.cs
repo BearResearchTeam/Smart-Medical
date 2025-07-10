@@ -82,5 +82,12 @@ namespace Smart_Medical.DoctorvVsit
         /// </summary>
         public string Certificate { get; set; }
 
+
+        /// <summary>
+        /// 审核人
+        /// </summary>
+        public string AuditName { get; set; }
+
+
     }
 }
