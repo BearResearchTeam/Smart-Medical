@@ -20,4 +20,16 @@ namespace Smart_Medical.Pharmacy
         /// </summary>
         public bool ForceDelete { get; set; } = false;
     }
+
+    public class DrugGroupByTypeDto
+    {
+        public string DrugType { get; set; }
+        public List<ResultDrugDto> Drugs { get; set; }
+    }
+
+    public class ResultDrugDto
+    {
+        public int Id { get; set; }
+        public string DrugName { get; set; }
+    }
 } 

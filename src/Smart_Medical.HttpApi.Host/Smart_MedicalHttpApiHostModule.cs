@@ -219,6 +219,7 @@ public class Smart_MedicalHttpApiHostModule : AbpModule
                 options.SwaggerDoc("制药公司管理", new OpenApiInfo { Title = "制药公司管理", Version = "制药公司管理" });
                 options.SwaggerDoc("药品入库管理", new OpenApiInfo { Title = "药品入库管理", Version = "药品入库管理" });
                 options.SwaggerDoc("患者管理", new OpenApiInfo { Title = "患者管理", Version = "患者管理" });
+                options.SwaggerDoc("住院管理", new OpenApiInfo { Title = "住院管理", Version = "住院管理" });
                 options.SwaggerDoc("病种管理", new OpenApiInfo { Title = "病种管理", Version = "病种管理" }); 
                 options.SwaggerDoc("科室管理", new OpenApiInfo { Title = "科室管理", Version = "科室管理" });
                 options.SwaggerDoc("医生管理", new OpenApiInfo { Title = "医生管理", Version = "医生管理" });
@@ -340,6 +341,7 @@ public class Smart_MedicalHttpApiHostModule : AbpModule
             c.SwaggerEndpoint("/swagger/制药公司管理/swagger.json", "制药公司管理");
             c.SwaggerEndpoint("/swagger/药品入库管理/swagger.json", "药品入库管理");
             c.SwaggerEndpoint("/swagger/患者管理/swagger.json", "患者管理");
+            c.SwaggerEndpoint("/swagger/住院管理/swagger.json", "住院管理");
             c.SwaggerEndpoint("/swagger/病种管理/swagger.json", "病种管理");
             c.SwaggerEndpoint("/swagger/科室管理/swagger.json", "科室管理");
             c.SwaggerEndpoint("/swagger/医生管理/swagger.json", "医生管理");

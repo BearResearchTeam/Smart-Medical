@@ -7,6 +7,7 @@ using Smart_Medical.Pharmacy;
 using Smart_Medical.Pharmacy.InAndOutWarehouse;
 using Smart_Medical.Prescriptions;
 using Smart_Medical.RBAC;
+using Smart_Medical.Equipment;
 using Volo.Abp.AuditLogging.EntityFrameworkCore;
 using Volo.Abp.BackgroundJobs.EntityFrameworkCore;
 using Volo.Abp.Data;
@@ -46,7 +47,7 @@ public class Smart_MedicalDbContext :
 
     public DbSet<Prescription> Prescriptions { get; set; }
     //public DbSet<Medication> Medications { get; set; }
-
+    public DbSet<EquipmentManagement> EquipmentManagements { get; set; }    
 
     #region
 
@@ -368,6 +369,19 @@ public class Smart_MedicalDbContext :
 
           /*  // 应用 ABP 框架的约定配置
             b.ConfigureByConvention();*/
+        });
+
+        builder.Entity<EquipmentManagement>(b =>
+        {
+            b.ToTable(Smart_MedicalConsts.DbTablePrefix + "EquipmentManagements", Smart_MedicalConsts.DbSchema);
+            b.ConfigureByConvention(); //auto configure for the base class props
+            b.Property(x => x.Name).IsRequired().HasMaxLength(64);
+            b.Property(x => x.Model).HasMaxLength(64);
+            b.Property(x => x.Manufacturer).HasMaxLength(64);
+            b.Property(x => x.Department).HasMaxLength(64);
+            b.Property(x => x.Status).IsRequired().HasMaxLength(32);
+            b.Property(x => x.Location).HasMaxLength(128);
+            b.Property(x => x.Remark).HasMaxLength(256);
         });
 
     }
