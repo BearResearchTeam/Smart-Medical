@@ -140,10 +140,10 @@ namespace Smart_Medical.Registration
 
                         var sick = new Sick
                         {
+                            PatientName = input.PatientName,
                             BasicPatientId = patient.Id,
                             Status = "新建",              // 病历状态必须有值，防止 Required 报错
                             InpatientNumber = "",
-
                             AdmissionDiagnosis = "",
                             DischargeTime = DateTime.Now,
                             CreationTime = patient.VisitDate,
