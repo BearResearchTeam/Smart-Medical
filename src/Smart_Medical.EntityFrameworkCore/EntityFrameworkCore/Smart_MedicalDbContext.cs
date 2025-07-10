@@ -71,6 +71,7 @@ public class Smart_MedicalDbContext :
 
     public DbSet<Appointment> Appointments { get; set; }
 
+    public DbSet<DoctorAudit> DoctorAudits{ get; set; }
 
     public Smart_MedicalDbContext(DbContextOptions<Smart_MedicalDbContext> options)
         : base(options)
@@ -382,6 +383,13 @@ public class Smart_MedicalDbContext :
             b.Property(x => x.Status).IsRequired().HasMaxLength(32);
             b.Property(x => x.Location).HasMaxLength(128);
             b.Property(x => x.Remark).HasMaxLength(256);
+        });
+
+        builder.Entity<DoctorAudit>(b =>
+        {
+            b.ToTable(Smart_MedicalConsts.DbTablePrefix + "DoctorAudits",
+                Smart_MedicalConsts.DbSchema);
+            b.ConfigureByConvention();
         });
 
     }
