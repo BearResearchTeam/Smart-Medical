@@ -113,7 +113,6 @@ namespace Smart_Medical.Dictionarys
         /// <summary>
         /// 删除字典数据
         /// </summary>
-        /// <param name="Dictiontype"></param>
         /// <returns></returns>
         [HttpPut]
         public async Task<ApiResult> DeleteDictionaryListAsync(Guid id)
@@ -125,7 +124,6 @@ namespace Smart_Medical.Dictionarys
         /// <summary>
         /// 获取字典数据类型联查
         /// </summary>
-        /// <param name="Dictiontype"></param>
         /// <returns></returns>
         public async Task<ApiResult<List<DictionaryDto>>> GetDictionaryListAsync(string Dictiontype)
         {

@@ -34,7 +34,6 @@ namespace Smart_Medical.DoctorvVsit.DoctorAccounts
         /// <summary>
         /// 获取医生账户列表
         /// </summary>
-        /// <param name="id"></param>
         /// <returns></returns>
         Task<ApiResult> DeleteDoctorAccount([FromQuery] string idsString);
     }

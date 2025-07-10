@@ -32,9 +32,6 @@ public class Smart_MedicalApplicationModule : AbpModule
         // 注册泛型接口实现
         context.Services.AddScoped(typeof(IRedisHelper<>), typeof(RedisHelper<>));
 
-        // 显式注册 DictionaryDataService
-        //context.Services.AddScoped<IDictionaryDataService, DictionaryDataService>();
-
         // 配置自动映射
         Configure<AbpAutoMapperOptions>(options =>
         {

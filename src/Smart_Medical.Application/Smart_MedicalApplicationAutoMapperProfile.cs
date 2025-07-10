@@ -62,6 +62,7 @@ public class Smart_MedicalApplicationAutoMapperProfile : Profile
         CreateMap<Permission, PermissionDto>();
         CreateMap<CreateUpdatePermissionDto, Permission>();
 
+
         //用户角色关联
         CreateMap<UserRole, UserRoleDto>();
         CreateMap<CreateUpdateUserRoleDto, UserRole>();
@@ -72,8 +73,10 @@ public class Smart_MedicalApplicationAutoMapperProfile : Profile
 
         //处方
         CreateMap<PrescriptionDto, Prescription>().ReverseMap();
-        CreateMap<CreateUpdateMedicationDto, Medication>();
-        CreateMap<Medication, MedicationDto>().ReverseMap();
+        CreateMap<PrescriptionListDto, Prescription>().ReverseMap();
+
+        CreateMap<DrugsSelectDto, Drug>().ReverseMap();
+
         #region 
 
         CreateMap<DoctorClinic, InsertPatientDto>().ReverseMap();

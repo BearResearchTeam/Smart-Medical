@@ -150,18 +150,7 @@ namespace Smart_Medical.RBAC.Permissions
                             ParentId = x.ParentId,
                             Icon = x.Icon,
                             Children= new List<GetMenuPermissionTree>()
-                            //    Children = permissionEntityList
-                            //.Where(c => c.ParentId == x.Id)
-                            //.Select(c => new GetMenuPermissionTree
-                            //{
-                            //    Id = c.Id,
-                            //    PermissionName = c.PermissionName,
-                            //    PermissionCode = c.PermissionCode,
-                            //    Type = c.Type,
-                            //    PagePath = c.PagePath,
-                            //    ParentId = c.ParentId,
-                            //    Children = new List<GetMenuPermissionTree>()
-                            //}).ToList()
+                           
                         }).ToList()
                 }).ToList();
 

@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Smart_Medical.Dictionarys.DictionaryDatas;
 using Smart_Medical.DoctorvVsit.DockerDepartments;
 using Smart_Medical.Until;
@@ -50,12 +51,12 @@ namespace Smart_Medical.DoctorvVsit
         /// <returns></returns>
         public async Task<ApiResult<List<GetDoctorDepartmentListDto>>> GetDoctorDepartment()
         {
-            var datalist=await deptredis.GetAsync(CacheKey, async () =>
+            var datalist = await deptredis.GetAsync(CacheKey, async () =>
             {
                 var deptlist = await dept.GetQueryableAsync();
                 return ObjectMapper.Map<List<DoctorDepartment>, List<GetDoctorDepartmentListDto>>(deptlist.ToList());
             });
-            datalist ??=new List<GetDoctorDepartmentListDto>();
+            datalist ??= new List<GetDoctorDepartmentListDto>();
             return ApiResult<List<GetDoctorDepartmentListDto>>.Success(datalist, ResultCode.Success);
         }
         /// <summary>
@@ -73,7 +74,7 @@ namespace Smart_Medical.DoctorvVsit
             });
             datalist ??= new List<GetDoctorDepartmentListDto>();
             //var list = await dept.GetQueryableAsync();
-           var list = datalist.WhereIf(!string.IsNullOrEmpty(search.DepartmentName), x => x.DepartmentName.Contains(search.DepartmentName));
+            var list = datalist.WhereIf(!string.IsNullOrEmpty(search.DepartmentName), x => x.DepartmentName.Contains(search.DepartmentName));
             var res = list.AsQueryable().PageResult(search.PageIndex, search.PageSize);
             var pageInfo = new PageResult<List<GetDoctorDepartmentListDto>>
             {
@@ -85,21 +86,54 @@ namespace Smart_Medical.DoctorvVsit
             return ApiResult<PageResult<List<GetDoctorDepartmentListDto>>>.Success(pageInfo, ResultCode.Success);
         }
         /// <summary>
-        /// 修改科室列表
+        /// 更新医生科室信息
         /// </summary>
-        /// <param name="id"></param>
-        /// <param name="input"></param>
-        /// <returns></returns>
+        /// <param name="id">科室ID</param>
+        /// <param name="input">更新科室的数据传输对象</param>
+        /// <returns>API操作结果</returns>
         [HttpPut]
         public async Task<ApiResult> UpdateDoctorDepartment(Guid id, CreateUpdateDoctorDepartmentDto input)
         {
-            var deptlist = await dept.FindAsync(id);
-            if (deptlist.DepartmentName == input.DepartmentName)
+            // 1. 参数校验：检查传入的input是否为空
+            if (input == null)
             {
-                return ApiResult.Fail("科室名称已存在不能修改", ResultCode.NotFound);
+                return ApiResult.Fail("更新信息不能为空。", ResultCode.ValidationError);
             }
-            var dto = ObjectMapper.Map(input, deptlist);
-            await dept.UpdateAsync(dto);
+
+            // 2. 存在性检查：查找要更新的科室是否存在
+            var existingDepartment = await dept.FindAsync(id);
+            if (existingDepartment == null)
+            {
+                return ApiResult.Fail("要更新的科室不存在。", ResultCode.NotFound);
+            }
+
+            // 3. 重复名称检查：
+            //    如果新的科室名称与旧名称不同，才进行重复性检查。
+            //    这样做可以避免在只修改科室其他属性（如描述）时，
+            //    因为名称与自身相同而被误判为重复。
+            if (!string.Equals(existingDepartment.DepartmentName, input.DepartmentName, StringComparison.OrdinalIgnoreCase))
+            {
+                // 在这里添加 await
+                var departmentQueryable = await dept.GetQueryableAsync(); // 解决 CS1061 错误
+
+                var departmentWithNameExists = await departmentQueryable.AnyAsync(x => string.Equals(x.DepartmentName,input.DepartmentName, StringComparison.OrdinalIgnoreCase));
+                if (departmentWithNameExists)
+                {
+                    return ApiResult.Fail($"科室名称 '{input.DepartmentName}' 已存在，请使用其他名称。", ResultCode.ValidationError);
+                }
+            }
+
+            // 4. 映射更新：使用 AutoMapper 或类似工具将 input 映射到 existingDepartment
+            //    确保只更新允许修改的字段。
+            ObjectMapper.Map(input, existingDepartment);
+
+            // 5. 更新科室：执行数据库更新操作
+            await dept.UpdateAsync(existingDepartment);
+
+            // 6. 缓存清除 (可选)：
+            // 如果科室列表有缓存，科室信息修改后通常需要清除科室列表缓存
+            await deptredis.RemoveAsync(CacheKey); // 有独立的缓存键
+
             return ApiResult.Success(ResultCode.Success);
         }
 

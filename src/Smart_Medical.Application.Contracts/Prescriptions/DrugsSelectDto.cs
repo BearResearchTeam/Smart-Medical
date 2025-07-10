@@ -6,12 +6,9 @@ using System.Threading.Tasks;
 
 namespace Smart_Medical.Prescriptions
 {
-    public class MedicationSearchDto
+    public class DrugsSelectDto
     {
-        public int PrescriptionId { get; set; }
-        public int pageIndex { get; set; }
-
-        public int pageSize { get; set; }
-
+        public int Id { get; set; }
+        public string DrugName { get; set; }
     }
 }

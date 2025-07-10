@@ -47,7 +47,7 @@ namespace Smart_Medical;
     typeof(AbpAspNetCoreMvcUiLeptonXLiteThemeModule),
     typeof(AbpSwashbuckleModule),
     typeof(AbpAspNetCoreSerilogModule),
-    typeof(AbpCachingStackExchangeRedisModule)
+    typeof(AbpCachingStackExchangeRedisModule)//集成Redis作为缓存服务
 )]
 public class Smart_MedicalHttpApiHostModule : AbpModule
 {
@@ -75,7 +75,7 @@ public class Smart_MedicalHttpApiHostModule : AbpModule
         services.AddSingleton<JwtSecurityTokenHandler>();
 
         //services.addsc
-
+        // 反伪造令牌 防止 跨站请求伪造
         Configure<AbpAntiForgeryOptions>(options =>
         {
             options.TokenCookie.Expiration = TimeSpan.FromDays(365);
@@ -314,7 +314,7 @@ public class Smart_MedicalHttpApiHostModule : AbpModule
         }
 
         app.UseCorrelationId();
-        app.MapAbpStaticAssets();
+        app.MapAbpStaticAssets();//静态资源
         app.UseRouting();
         app.UseCors();
         app.UseAuthentication();

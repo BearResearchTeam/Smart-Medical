@@ -4,16 +4,12 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Volo.Abp.Domain.Entities.Auditing;
 
 namespace Smart_Medical.Prescriptions
 {
-    /// <summary>
-    /// 处方信息
-    /// </summary>
-    public class Prescription : FullAuditedAggregateRoot<int>
+    public class PrescriptionListDto
     {
-
+        public int Id { get; set; }
         /// <summary>
         /// 处方名称
         /// </summary>
@@ -24,14 +20,11 @@ namespace Smart_Medical.Prescriptions
         /// <summary>
         /// 药品信息id  此处方下所有药品的ID集合
         /// </summary>
-        public string? DrugIds { get; set; }=string.Empty;
-
+        public string? DrugIds { get; set; } = string.Empty;
         /// <summary>
-        /// 父级Id   1中药和2西药
+        /// 父级Id
         /// </summary>
         [Required]
-        public int ParentId { get; set; } 
-
-
+        public int ParentId { get; set; }
     }
 }

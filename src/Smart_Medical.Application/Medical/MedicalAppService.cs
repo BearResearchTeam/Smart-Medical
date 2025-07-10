@@ -52,15 +52,11 @@ namespace Smart_Medical.Medical
         /// <summary>
         /// 分页获取病历列表
         /// </summary>
-        /// <param name="input">查询参数</param>
         /// <returns></returns>
         [HttpGet]
         public async Task<ApiResult<PagedResultDto<SickDto>>> GetListAsync([FromQuery] SickSearchDto search)
         {
             var list = await _repository.GetQueryableAsync();
-
-
-
             list = list.WhereIf(!string.IsNullOrWhiteSpace(search.PatientName), x => x.PatientName.Contains(search.PatientName))
                        .WhereIf(!string.IsNullOrWhiteSpace(search.InpatientNumber), x => x.InpatientNumber.Contains(search.InpatientNumber))
                        .WhereIf(!string.IsNullOrWhiteSpace(search.AdmissionDiagnosis), x => x.AdmissionDiagnosis.Contains(search.AdmissionDiagnosis));
