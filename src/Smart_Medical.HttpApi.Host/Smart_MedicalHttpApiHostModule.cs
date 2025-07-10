@@ -313,7 +313,7 @@ public class Smart_MedicalHttpApiHostModule : AbpModule
         }
 
         app.UseCorrelationId();
-        app.MapAbpStaticAssets();
+        app.MapAbpStaticAssets();//静态资源
         app.UseRouting();
         app.UseCors();
         app.UseAuthentication();

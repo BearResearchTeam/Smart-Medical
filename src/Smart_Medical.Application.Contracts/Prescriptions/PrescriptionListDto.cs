@@ -7,8 +7,9 @@ using System.Threading.Tasks;
 
 namespace Smart_Medical.Prescriptions
 {
-    public class PrescriptionDto
+    public class PrescriptionListDto
     {
+        public int Id { get; set; }
         /// <summary>
         /// 处方名称
         /// </summary>
@@ -19,7 +20,7 @@ namespace Smart_Medical.Prescriptions
         /// <summary>
         /// 药品信息id  此处方下所有药品的ID集合
         /// </summary>
-        public string? DrugIds { get; set; }=string.Empty;
+        public string? DrugIds { get; set; } = string.Empty;
         /// <summary>
         /// 父级Id
         /// </summary>
