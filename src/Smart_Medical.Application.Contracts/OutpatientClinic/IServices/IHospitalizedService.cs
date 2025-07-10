@@ -12,7 +12,7 @@ namespace Smart_Medical.Registration
         Task<ApiResult> DeleteAsync(Guid id);
         Task<ApiResult<List<GetAllSickInfoDto>>> GetAllPatient();
         Task<ApiResult<HospitalizedDto>> GetAsync(Guid id);
-        Task<ApiResult<List<HospitalizedDto>>> GetListAsync();
+        Task<ApiResult<List<HospitalizedDto>>> GetListAsync(string keyword);
         Task<ApiResult> UpdateAsync(Guid id, CreateUpdateHospitalizedDto input);
     }
 }
