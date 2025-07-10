@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using NPOI.POIFS.Properties;
 using Smart_Medical.Medical;
 using Smart_Medical.OutpatientClinic.Dtos;
 using Smart_Medical.OutpatientClinic.IServices;
@@ -15,6 +16,7 @@ using Volo.Abp.Domain.Repositories;
 namespace Smart_Medical.Registration
 {
     
+
 
 
     /// <summary>
@@ -39,11 +41,34 @@ namespace Smart_Medical.Registration
         {
             try
             {
-                var sick = await _sickRepository.FirstOrDefaultAsync(x => x.Status == "新建" && x.BasicPatientId == id);
-                if (sick != null)
+                var queryable = await _sickRepository.GetQueryableAsync();
+                var sick = await queryable
+                    .Where(x => x.BasicPatientId == id)
+                    .OrderByDescending(x => x.CreationTime)
+                    .FirstOrDefaultAsync();
+
+                var cases = queryable.Where(x => x.BasicPatientId == id);
+
+
+                if (sick == null)
                 {
-                    return ApiResult<ApiResult>.Fail("该患者已住院", ResultCode.Error);
+                    return ApiResult<ApiResult>.Fail("未找到该患者的病历记录", ResultCode.NotFound);
                 }
+
+                // 如果状态为已登记或住院中，不允许再次入院
+                if (sick.Status == HospitalizationStatus.Registered.ToString() ||
+                    sick.Status == HospitalizationStatus.Discharged.ToString())
+                {
+                    return ApiResult<ApiResult>.Fail("该患者已登记或正在住院中，无法重复入院", ResultCode.Error);
+                }
+
+                // 仅允许新建状态的入院
+                if (sick.Status != "新建")
+                {
+                    return ApiResult<ApiResult>.Fail("病历状态不是新建，无法执行入院操作", ResultCode.Error);
+                }
+
+                // 修改状态为住院中
                 sick.Status = HospitalizationStatus.Registered.ToString();
                 await _sickRepository.UpdateAsync(sick);
                 return ApiResult<ApiResult>.Success(
@@ -62,7 +87,8 @@ namespace Smart_Medical.Registration
         /// </summary>
         public async Task<ApiResult<List<GetAllSickInfoDto>>> GetAllPatient()
         {
-            var list = await _sickRepository.GetListAsync();
+            var list = await _sickRepository.GetQueryableAsync();
+            list = list.Where(x => x.Status == "新建");
             var result = new List<GetAllSickInfoDto>();
             foreach (var sick in list)
             {
@@ -81,7 +107,7 @@ namespace Smart_Medical.Registration
         public async Task<ApiResult<List<HospitalizedDto>>> GetListAsync(string keyword)
         {
             var list = await (await _sickRepository.GetQueryableAsync())
-                .Where(x => x.Status != "新建")
+                .Where(x => x.Status != "新建" && x.Status == keyword)
                 .ToListAsync();
 
 
@@ -108,6 +134,27 @@ namespace Smart_Medical.Registration
             ObjectMapper.Map(input, entity);
             await _sickRepository.UpdateAsync(entity);
             return ApiResult.Success(ResultCode.Success);
+        }
+
+        /// <summary>
+        /// 更改住院状态
+        /// </summary>
+        /// <param name="id">病历记录ID</param>
+        /// <param name="status">新状态</param>
+        /// <returns></returns>
+        [HttpPost]
+        public async Task<ApiResult<ApiResult>> UpdateStatusAsync(Guid id, string status)
+        {
+            var sick = await _sickRepository.GetAsync(id);
+            if (sick == null)
+            {
+                return ApiResult<ApiResult>.Fail("未找到该患者的病历记录", ResultCode.NotFound);
+            }                        
+            sick.Status = status;
+            await _sickRepository.UpdateAsync(sick);
+            return ApiResult<ApiResult>.Success(
+                    ApiResult.Success(ResultCode.Success)
+                    , ResultCode.Success);
         }
 
         /// <summary>

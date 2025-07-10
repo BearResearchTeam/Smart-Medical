@@ -3,6 +3,7 @@ using Smart_Medical.Until;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Volo.Abp.Application.Services;
 
 namespace Smart_Medical.Registration
 {
@@ -14,5 +15,6 @@ namespace Smart_Medical.Registration
         Task<ApiResult<HospitalizedDto>> GetAsync(Guid id);
         Task<ApiResult<List<HospitalizedDto>>> GetListAsync(string keyword);
         Task<ApiResult> UpdateAsync(Guid id, CreateUpdateHospitalizedDto input);
+        Task<ApiResult<ApiResult>> UpdateStatusAsync(Guid id, string status);
     }
 }
