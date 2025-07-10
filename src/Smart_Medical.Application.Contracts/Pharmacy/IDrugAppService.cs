@@ -25,5 +25,6 @@ namespace Smart_Medical.Pharmacy
         Task<ApiResult> UpdateAsync(int id, CreateUpdateDrugDto input);
         Task<ApiResult> DeleteAsync(int id);
 
+        Task<ApiResult<List<DrugGroupByTypeDto>>> GetDrugsGroupedByTypeAsync();
     }
 }

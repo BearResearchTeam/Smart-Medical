@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
@@ -19,6 +20,7 @@ using System.Threading.Tasks;
 using Volo.Abp;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.ObjectMapping;
 using Volo.Abp.Uow;
 
 namespace Smart_Medical.Registration
@@ -79,12 +81,12 @@ namespace Smart_Medical.Registration
         /// </summary>
         /// <param name="patientNumber">患者编号（GUID）</param>
         /// <returns>返回 ApiResult，标识发药成功或失败及相关提示信息</returns>
-        public async Task<ApiResult> DistributeMedicine(Guid patientNumber)
+        public async Task<ApiResult<ApiResult>> DistributeMedicine(Guid patientNumber)
         {
             // 身份证校验，患者编号不能是空Guid
             if (patientNumber == Guid.Empty)
             {
-                return ApiResult.Fail("患者编号不能为空！你这是想给空气发药吗？😂", ResultCode.Error); // 修正为BadRequest更合适
+                return ApiResult<ApiResult>.Fail("患者编号不能为空！你这是想给空气发药吗？😂", ResultCode.Error); // 修正为BadRequest更合适
             }
 
             using (var uow = _unitOfWorkManager.Begin(requiresNew: true)) // 开启一个新的事务单元
@@ -96,18 +98,20 @@ namespace Smart_Medical.Registration
                     if (patient == null)
                     {
                         _logger.LogWarning($"发药失败：找不到患者编号为 {patientNumber} 的患者。");
-                        return ApiResult.Fail("患者信息不存在！发药对象找不着了呢！😭", ResultCode.NotFound);
+                        return ApiResult<ApiResult>.Fail("患者信息不存在！发药对象找不着了呢！😭", ResultCode.NotFound);
                     }
 
                     var doctorClinic = await _doctorclinRepo.FirstOrDefaultAsync(dc => dc.PatientId == patientNumber && dc.DispensingStatus == 0); // 找到待发药的就诊流程
                     if (doctorClinic == null)
                     {
                         _logger.LogInformation($"患者 {patientNumber} 没有需要发药的就诊流程。");
-                        return ApiResult.Fail("患者没有待发药的就诊记录！别瞎忙活啦！😊", ResultCode.Success); // 没有待发药的也算成功吧，毕竟不用发了
+                        return ApiResult<ApiResult>.Fail("患者没有待发药的就诊记录！别瞎忙活啦！😊", ResultCode.Success); // 没有待发药的也算成功吧，毕竟不用发了
                     }
 
                     var prescriptions = await _prescriptionRepo.GetQueryableAsync();
                     prescriptions = prescriptions.Where(p => p.PatientNumber == patientNumber);
+                    prescriptions = prescriptions.OrderByDescending(x => x.CreationTime);
+                    var latestPrescription = prescriptions.FirstOrDefault();
 
                     if (!prescriptions.Any())
                     {
@@ -116,35 +120,15 @@ namespace Smart_Medical.Registration
                         doctorClinic.DispensingStatus = 1; // 已发药
                         await _doctorclinRepo.UpdateAsync(doctorClinic);
                         await uow.CompleteAsync(); // 提交事务
-                        return ApiResult.Success(ResultCode.Success);
+                        return ApiResult<ApiResult>.Success(
+                            ApiResult.Success(ResultCode.Success),ResultCode.Success
+                            );
                     }
 
                     //遍历所有处方，处理药品发药逻辑
                     foreach (var prescription in prescriptions)
                     {
-                        if (prescription.IsActive) // 如果是使用处方模板，DrugIds是逗号分隔的字符串
-                        {
-                            if (!string.IsNullOrWhiteSpace(prescription.DrugIds))
-                            {
-                                var drugIds = prescription.DrugIds.Split(',')
-                                                        .Select(int.Parse)
-                                                        .ToList();
-
-                                foreach (var drugId in drugIds)
-                                {
-                                    var drug = await _drugRepo.FirstOrDefaultAsync(d => d.Id == drugId);
-                                    if (drug == null)
-                                    {
-                                        _logger.LogError($"发药失败：处方 {prescription.Id} 中的药品ID {drugId} 不存在。");
-                                        throw new UserFriendlyException($"处方中包含无效药品ID: {drugId}。发药失败！");
-                                    }
-                                    // 为了简化，这里暂时不处理具体的库存扣减，但这是真实场景下必须的！
-                                    _logger.LogInformation($"已处理处方 {prescription.Id} 中的药品 {drug.Id}。");
-                                }
-                            }
-                        }
-                        else // 如果是不使用处方模板
-                        {
+                        
                             if (!string.IsNullOrWhiteSpace(prescription.DrugIds))
                             {
                                 try
@@ -158,13 +142,17 @@ namespace Smart_Medical.Registration
                                         foreach (var item in prescriptionItems)
                                         {
                                             var drug = await _drugRepo.FirstOrDefaultAsync(d => d.Id == item.DrugId);
-                                            if (drug == null)
-                                            {
-                                                _logger.LogError($"发药失败：处方 {prescription.Id} 手动录入的药品ID {item.DrugId} 不存在。");
-                                                throw new UserFriendlyException($"手动录入处方中包含无效药品ID: {item.DrugId}。发药失败！");
-                                            }
-                                            ;
-                                            _logger.LogInformation($"已处理处方 {prescription.Id} 手动录入的药品 {drug.Id}，数量 {item.Number}。");
+                                            if (drug == null)                                            
+                                                return ApiResult<ApiResult>.Fail($"手动录入处方中包含无效药品ID: {item.DrugId}。发药失败！", ResultCode.NotFound);
+
+                                            //查找的药品库存是否充足
+                                            int remainingStock = drug.Stock - item.Number;
+                                            if (remainingStock < 0)
+                                                return ApiResult<ApiResult>.Fail($"药品 {drug.DrugName} 库存不足，无法开具发药", ResultCode.Error);
+
+                                            // 更新药品库存
+                                            drug.Stock = remainingStock;
+                                            await _drugRepo.UpdateAsync(drug);
                                         }
                                     }
                                 }
@@ -174,7 +162,7 @@ namespace Smart_Medical.Registration
                                     throw new UserFriendlyException("处方药品数据格式错误，请联系管理员！💊");
                                 }
                             }
-                        }
+                        
                         // 这里可以增加对单个处方的“已发药”标记，如果需要的话
                     }
 
@@ -185,13 +173,15 @@ namespace Smart_Medical.Registration
 
                     // 提交事务
                     await uow.CompleteAsync();
-                    return ApiResult.Success(ResultCode.Success);
+                    return ApiResult<ApiResult>.Success(
+                            ApiResult.Success(ResultCode.Success), ResultCode.Success
+                            );
                 }
                 catch (Exception ex)
                 {
                     await uow.RollbackAsync(); // 发生异常，先别慌，回滚事务，别把数据搞乱了！
                     _logger.LogError(ex, $"发药失败，系统异常！患者编号：{patientNumber}");
-                    return ApiResult.Fail("发药失败，系统异常！程序它有点小情绪了呢！😢", ResultCode.Error); // 返回系统异常提示
+                    return ApiResult<ApiResult>.Fail("发药失败，系统异常！程序它有点小情绪了呢！😢", ResultCode.Error); // 返回系统异常提示
                 }
             }
         }
@@ -201,62 +191,26 @@ namespace Smart_Medical.Registration
         /// </summary>
         /// <param name="IdNumber">身份证号</param>
         /// <returns></returns>
-        public async Task<ApiResult<List<GetSickInfoDto>>> ConsultationRecord(string IdNumber)
+        public async Task<ApiResult<List<DrugItemDto>>> ConsultationRecord(Guid Id)
         {
             try
             {
-                //过于极端了
-                //var existingPatient = (await _patientRepo
-                //    .FirstOrDefaultAsync(
-                //        x => x.IdNumber == IdNumber) ?? throw new Exception("患者身份信息有误")
-                //    ).Id;
-                var existingPatient = await _patientRepo
-                    .FirstOrDefaultAsync(x => x.IdNumber == IdNumber);
-
-                if (existingPatient == null)
+                var patientPresc = await _prescriptionRepo.GetQueryableAsync();
+                patientPresc = patientPresc.Where(x => x.PatientNumber == Id);
+                patientPresc = patientPresc.OrderByDescending(x => x.CreationTime);
+                var latestPrescription = patientPresc.FirstOrDefault();
+                var result = JsonConvert.DeserializeObject<List<DrugItemDto>>(latestPrescription.DrugIds ?? "") ?? new List<DrugItemDto>();
+                foreach (var drug in result)
                 {
-                    return ApiResult<List<GetSickInfoDto>>.Fail("身份证号不能为空", ResultCode.NotFound);
+                    var drugInfo = await _drugRepo.GetAsync(drug.DrugId);
+                    if (drugInfo != null)
+                    {
+                        drug.DrugName = drugInfo.DrugName;
+                    }
                 }
-                // 获取所有患者、就诊记录、病历记录、处方记录的 IQueryable 数据源
-                var patients = await _patientRepo.GetQueryableAsync();
-                var clinics = await _doctorclinRepo.GetQueryableAsync();
-                var sicks = await _sickRepo.GetQueryableAsync();
 
-                // 执行联表查询：基于 patientId 联合就诊记录、病历记录、处方记录
-                var query = from p in patients
-                            where p.IdNumber == IdNumber
-                            join c in clinics on p.Id equals c.PatientId
-                            where c.ExecutionStatus == ExecutionStatus.PendingConsultation                                  
-                            join s in sicks on p.Id equals s.BasicPatientId into sickGroup
-                            from s in sickGroup.DefaultIfEmpty()
-                            select new GetSickInfoDto
-                            {
-                                Temperature = s.Temperature, // 体温
-                                Pulse = s.Pulse,             // 脉搏
-                                Breath = s.Breath,           // 呼吸
-                                BloodPressure = s.BloodPressure, // 血压
-                                ChiefComplaint = c.ChiefComplaint, // 主诉
-                            };
 
-                var result = query
-                            .AsEnumerable()
-                            .GroupBy(item => new
-                            {
-                                item.BasicPatientId,
-                            })
-                            .Select(g => g.First()) // 每组只保留第一个
-                            .Select(item => new GetSickInfoDto
-                            {
-                                BasicPatientId = item.BasicPatientId,
-                                Temperature = item.Temperature,
-                                Pulse = item.Pulse,
-                                Breath = item.Breath,
-                                BloodPressure = item.BloodPressure,
-                                ChiefComplaint = item.ChiefComplaint,
-                                PrescriptionTemplateNumber = item.PrescriptionTemplateNumber,
-                            })
-                            .ToList();                
-                return ApiResult<List<GetSickInfoDto>>.Success(result, ResultCode.Success);
+                return ApiResult<List<DrugItemDto>>.Success(result, ResultCode.Success);
             }
             catch (Exception)
             {
@@ -264,6 +218,60 @@ namespace Smart_Medical.Registration
                 throw;
             }
         }
+
+        public async Task<ApiResult<PagedResultDto<GetVisitingDto>>> VisitingPatientsAsync(GetVistingParameterDto input)
+        {
+            try
+            {
+                var query = from p in await _patientRepo.GetQueryableAsync()
+                            join c in await _doctorclinRepo.GetQueryableAsync() on p.Id equals c.PatientId
+                            where p.VisitStatus == "已就诊"
+                                  && c.DispensingStatus == input.DispensingStatus
+                                  && c.VisitDateTime.Date == DateTime.Today.Date // 只查今天
+                            select new
+                            {
+                                Patient = p,
+                                Clinic = c
+                            };
+
+                //关键词模糊搜索
+                if (!string.IsNullOrWhiteSpace(input.Keyword))
+                {
+                    var keyword = input.Keyword.Trim();
+                    query = query.Where(x =>
+                        x.Patient.IdNumber.Contains(keyword) ||
+                        x.Patient.PatientName.Contains(keyword) ||
+                        x.Patient.ContactPhone.Contains(keyword)
+                    );
+                }
+
+                var totalCount = await AsyncExecuter.CountAsync(query);
+
+                var result = await AsyncExecuter.ToListAsync(
+                    query.Page(input.PageIndex, input.PageSize)
+                         .Select(x => new GetVisitingDto
+                         {
+                             Id = x.Patient.Id,
+                             PatientName = x.Patient.PatientName,
+                             Gender = x.Patient.Gender,
+                             Age = x.Patient.Age,
+                             VisitDate = x.Patient.VisitDate,
+                         })
+                );
+
+                // 6. 返回分页结果
+                return ApiResult<PagedResultDto<GetVisitingDto>>.Success(
+                    new PagedResultDto<GetVisitingDto>(totalCount, result),
+                    ResultCode.Success
+                );
+            }
+            catch (Exception ex)
+            {
+                Logger.LogException(ex);
+                throw;
+            }
+        }
+
     }
 
 }

@@ -327,6 +327,40 @@ namespace Smart_Medical.Pharmacy
             };
         }
 
+        /// <summary>
+        /// 展示所有药品数据，按照类别展示
+        /// </summary>
+        /// <returns></returns>
+        public async Task<ApiResult<List<DrugGroupByTypeDto>>> GetDrugsGroupedByTypeAsync()
+        {
+            try
+            {
+                // 获取所有药品的可查询对象
+                var queryable = await Repository.GetQueryableAsync();
+
+                // 按药品类型分组，并将每组药品转换为 DrugGroupByTypeDto 列表
+                var groupedDrugs = await queryable
+                    .GroupBy(d => d.DrugType) // 按药品类型分组
+                    .Select(g => new DrugGroupByTypeDto
+                    {
+                        DrugType = g.Key, // 分组的药品类型
+                        Drugs = g.Select(d => new ResultDrugDto
+                        {
+                            Id = d.Id, // 药品ID
+                            DrugName = d.DrugName // 药品名称
+                        }).ToList() // 当前类型下的所有药品列表
+                    })
+                    .ToListAsync(); // 转为列表
+
+                // 返回分组后的药品数据，封装为ApiResult
+                return ApiResult<List<DrugGroupByTypeDto>>.Success(groupedDrugs, ResultCode.Success);
+            }
+            catch (Exception)
+            {
+
+                throw;
+            }            
+        }
     }
 }
 
