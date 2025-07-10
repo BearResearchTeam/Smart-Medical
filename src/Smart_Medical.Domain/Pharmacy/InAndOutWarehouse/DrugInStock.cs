@@ -20,9 +20,9 @@ namespace Smart_Medical.Pharmacy.InAndOutWarehouse
         public int DrugId { get; set; }
 
         /// <summary>
-        /// 制药公司ID
+        /// 法人
         /// </summary>
-        public Guid PharmaceuticalCompanyId { get; set; }
+        public string OrmName { get; set; }
 
 
 
