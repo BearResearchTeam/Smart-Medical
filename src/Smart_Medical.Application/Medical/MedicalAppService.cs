@@ -10,6 +10,7 @@ using Smart_Medical.Medical.Smart_Medical.Medical;
 using Smart_Medical.OutpatientClinic.Dtos.Parameter;
 using Smart_Medical.Patient;
 using Smart_Medical.Pharmacy;
+using Smart_Medical.Pharmacy.InAndOutWarehouse;
 using Smart_Medical.RBAC;
 using Smart_Medical.Until;
 using System;
@@ -55,29 +56,22 @@ namespace Smart_Medical.Medical
         /// </summary>
         private readonly IRepository<Patient.Appointment, Guid> _appointment;
         private readonly IRepository<UserPatient, Guid> _userPatientRepo;
+        private readonly IRepository<DrugInStock, Guid> _drugInStockRepo;
+        private readonly IRepository<MedicalHistory, Guid> _commpany;
 
-        public MedicalAppService(
-            IUnitOfWorkManager unitOfWorkManager,
-            IRepository<DoctorClinic, Guid> doctorclinRepo,
-            IRepository<BasicPatientInfo, Guid> basicpatientRepo,
-            IRepository<Sick, Guid> sickRepo,
-            IRepository<PatientPrescription, Guid> prescriptionRepo,
-            IRepository<Drug, int> drugRepo,
-            IRepository<Patient.Appointment, Guid> appointmentRep,
-             IRepository<UserPatient, Guid> userPatientRepo
-            )
+        public MedicalAppService(IUnitOfWorkManager unitOfWorkManager, IRepository<DoctorClinic, Guid> doctorclinRepo, IRepository<BasicPatientInfo, Guid> patientRepo, IRepository<Sick, Guid> sickRepo, IRepository<PatientPrescription, Guid> prescriptionRepo, IRepository<Drug, int> drugRepo, IRepository<Patient.Appointment, Guid> appointment, IRepository<UserPatient, Guid> userPatientRepo, IRepository<DrugInStock, Guid> drugInStockRepo, IRepository<MedicalHistory, Guid> commpany)
         {
             _unitOfWorkManager = unitOfWorkManager;
             _doctorclinRepo = doctorclinRepo;
-            _patientRepo = basicpatientRepo;
+            _patientRepo = patientRepo;
             _sickRepo = sickRepo;
             _prescriptionRepo = prescriptionRepo;
             _drugRepo = drugRepo;
-            _appointment = appointmentRep;
+            _appointment = appointment;
             _userPatientRepo = userPatientRepo;
+            _drugInStockRepo = drugInStockRepo;
+            _commpany = commpany;
         }
-
-
 
         public async Task<ApiResult<List<SickFullInfoDto>>> GetPatientSickFullInfoAsync()
         {
@@ -299,6 +293,59 @@ namespace Smart_Medical.Medical
                 FileDownloadName="病历信息.xlsx"
             };
         }
+
+        /// <summary>
+        /// 获取药品入库+药品+制药公司联合信息列表
+        /// </summary>
+       public async Task<ApiResult<List<DrugInStockCompanyFullDto>>> GetDrugInStockCompanyFullListAsync()
+{
+    var inStocks = await _drugInStockRepo.GetQueryableAsync();
+    var drugs = await _drugRepo.GetQueryableAsync();
+    var companies = await _commpany.GetQueryableAsync();
+
+    var query = from inStock in inStocks
+                join drug in drugs on inStock.DrugId equals drug.Id
+                join company in companies on inStock.PharmaceuticalCompanyId equals company.Id
+                select new DrugInStockCompanyFullDto
+                {
+                    // 药品入库
+                    InStockId = inStock.Id,
+                    DrugId = inStock.Id,
+                    Quantity = inStock.Quantity,
+                    UnitPrice = inStock.UnitPrice,
+                    TotalAmount = inStock.TotalAmount,
+                    ProductionDate = inStock.ProductionDate,
+                    ExpiryDate = inStock.ExpiryDate,
+                    BatchNumber = inStock.BatchNumber,
+                    Supplier = inStock.Supplier,
+                    Status = inStock.Status,
+                    CreationTime = inStock.CreationTime,
+
+                    // 药品管理
+                    DrugName = drug.DrugName,
+                    Specification = drug.Specification,
+                    PurchasePrice = drug.PurchasePrice,
+                    SalePrice = drug.SalePrice,
+                    Stock = drug.Stock,
+                    StockUpper = drug.StockUpper,
+                    StockLower = drug.StockLower,
+                    Effect = drug.Effect,
+                    DrugProductionDate = drug.ProductionDate,
+                    DrugExpiryDate = drug.ExpiryDate,
+
+
+                    // 制药公司
+                    CompanyId = company.Id,
+                    CompanyName = company.CompanyName,
+                    ContactPerson = company.ContactPerson,
+                    ContactPhone = company.ContactPhone,
+                    Address = company.Address,
+
+                };
+
+    var result = query.ToList();
+    return ApiResult<List<DrugInStockCompanyFullDto>>.Success(result, ResultCode.Success);
+}
 
     }
 }
