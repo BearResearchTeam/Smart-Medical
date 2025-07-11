@@ -1,42 +1,39 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace Smart_Medical.Medical
 {
-    public class SickSearchDto
+    using System;
+
+    namespace Smart_Medical.Medical
     {
-
         /// <summary>
-        /// 患者姓名（必填）
+        /// 病历分页查询条件
         /// </summary>
-        [Required(ErrorMessage = "患者姓名不能为空")]
-        [StringLength(50, ErrorMessage = "患者姓名长度不能超过50个字符")]
-        public string PatientName { get; set; } = string.Empty;
+        public class SickSearchDto
+        {
+            /// <summary>
+            /// 患者姓名（可选，模糊查询）
+            /// </summary>
+            public string? PatientName { get; set; }
 
-       
-        /// <summary>
-        /// 住院号 (可选, 模糊查询)
-        /// </summary>
-        public string? InpatientNumber { get; set; }
+            /// <summary>
+            /// 住院号（可选，模糊查询）
+            /// </summary>
+            public string? InpatientNumber { get; set; }
 
-        /// <summary>
-        /// 入院诊断 (可选, 模糊查询)
-        /// </summary>
-        public string? AdmissionDiagnosis { get; set; }
+            /// <summary>
+            /// 当前页码（默认1）
+            /// </summary>
+            public int PageIndex { get; set; } = 1;
 
-        /// <summary>
-        /// 当前页码 (默认为1)
-        /// </summary>
-        [DefaultValue(1)]
-        public int pageIndex { get; set; } = 1;
-
-        /// <summary>
-        /// 每页大小 (默认为10)
-        /// </summary>
-        [DefaultValue(10)]
-        public int pageSize { get; set; } = 10;
+            /// <summary>
+            /// 每页条数（默认5）
+            /// </summary>
+            public int PageSize { get; set; } = 5;
+        }
     }
-} 
+}
