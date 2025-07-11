@@ -1,14 +1,25 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿
+
+using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json;
+using NPOI.SS.UserModel;
+using NPOI.XSSF.UserModel;
+using Smart_Medical.Application.Contracts.Medical;
+using Smart_Medical.DoctorvVsit;
+using Smart_Medical.Medical.Smart_Medical.Medical;
+using Smart_Medical.OutpatientClinic.Dtos.Parameter;
+using Smart_Medical.Patient;
+using Smart_Medical.Pharmacy;
+using Smart_Medical.RBAC;
 using Smart_Medical.Until;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using Volo.Abp;
-using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
-using Volo.Abp.DependencyInjection;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.Uow;
 
 namespace Smart_Medical.Medical
 {
@@ -16,169 +27,278 @@ namespace Smart_Medical.Medical
     /// 病历管理AppService
     /// </summary>
     [ApiExplorerSettings(GroupName = "病种管理")]
-    public class MedicalAppService : ApplicationService, IMedicalAppService
+    public class MedicalAppService : ApplicationService
     {
-        private readonly IRepository<Sick, Guid> _repository;
+        private readonly IUnitOfWorkManager _unitOfWorkManager;
+        /// <summary>
+        /// 就诊流程
+        /// </summary>
+        private readonly IRepository<DoctorClinic, Guid> _doctorclinRepo;
+        /// <summary>
+        /// 患者基本信息
+        /// </summary>
+        private readonly IRepository<BasicPatientInfo, Guid> _patientRepo;
+        /// <summary>
+        /// 患者病历信息
+        /// </summary>
+        private readonly IRepository<Sick, Guid> _sickRepo;
+        /// <summary>
+        /// 患者开具处方
+        /// </summary>
+        private readonly IRepository<PatientPrescription, Guid> _prescriptionRepo;
+        /// <summary>
+        /// 药品
+        /// </summary>
+        private readonly IRepository<Drug, int> _drugRepo;
+        /// <summary>
+        /// 预约记录
+        /// </summary>
+        private readonly IRepository<Patient.Appointment, Guid> _appointment;
+        private readonly IRepository<UserPatient, Guid> _userPatientRepo;
 
-        public MedicalAppService(IRepository<Sick, Guid> repository)
+        public MedicalAppService(
+            IUnitOfWorkManager unitOfWorkManager,
+            IRepository<DoctorClinic, Guid> doctorclinRepo,
+            IRepository<BasicPatientInfo, Guid> basicpatientRepo,
+            IRepository<Sick, Guid> sickRepo,
+            IRepository<PatientPrescription, Guid> prescriptionRepo,
+            IRepository<Drug, int> drugRepo,
+            IRepository<Patient.Appointment, Guid> appointmentRep,
+             IRepository<UserPatient, Guid> userPatientRepo
+            )
         {
-            _repository = repository;
+            _unitOfWorkManager = unitOfWorkManager;
+            _doctorclinRepo = doctorclinRepo;
+            _patientRepo = basicpatientRepo;
+            _sickRepo = sickRepo;
+            _prescriptionRepo = prescriptionRepo;
+            _drugRepo = drugRepo;
+            _appointment = appointmentRep;
+            _userPatientRepo = userPatientRepo;
         }
 
-        /// <summary>
-        /// 获取单个病历信息
-        /// </summary>
-        /// <param name="id">病历Id</param>
-        /// <returns></returns>
-        [HttpGet]
-        public async Task<ApiResult<SickDto>> GetAsync(Guid id)
+
+
+        public async Task<ApiResult<List<SickFullInfoDto>>> GetPatientSickFullInfoAsync()
         {
-            try
+            // 1. 获取所有表的 IQueryable
+            var sicks = await _sickRepo.GetQueryableAsync();
+            var patients = await _patientRepo.GetQueryableAsync();
+            var clinics = await _doctorclinRepo.GetQueryableAsync();
+            var prescriptions = await _prescriptionRepo.GetQueryableAsync();
+            var drugs = await _drugRepo.GetQueryableAsync();
+            var appointments = await _appointment.GetQueryableAsync();
+
+            // 2. 多表联查（不再按 patientId 过滤）
+            var query = from sick in sicks
+                        join patient in patients on sick.BasicPatientId equals patient.Id into patientGroup
+                        from patient in patientGroup.DefaultIfEmpty()
+                        join clinic in clinics on sick.BasicPatientId equals clinic.PatientId into clinicGroup
+                        from clinic in clinicGroup.DefaultIfEmpty()
+                        join prescription in prescriptions on sick.BasicPatientId equals prescription.PatientNumber into presGroup
+                        from prescription in presGroup.DefaultIfEmpty()
+                        join appointment in appointments on sick.BasicPatientId equals appointment.PatientId into appGroup
+                        from appointment in appGroup.DefaultIfEmpty()
+                        select new SickFullInfoDto
+                        {
+                            // 病历信息
+                            SickId = sick.Id,
+                            BasicPatientId = sick.BasicPatientId,
+                            Status = sick.Status,
+                            PatientName = sick.PatientName,
+                            Temperature = sick.Temperature,
+                            Pulse = sick.Pulse,
+                            Breath = sick.Breath,
+                            BloodPressure = sick.BloodPressure,
+                            DischargeDiagnosis = sick.DischargeDiagnosis,
+                            InpatientNumber = sick.InpatientNumber,
+                            DischargeDepartment = sick.DischargeDepartment,
+                            DischargeTime = sick.DischargeTime,
+                            AdmissionDiagnosis = sick.AdmissionDiagnosis,
+
+                            // 患者基本信息
+                            PatientBaseName = patient == null ? null : patient.PatientName,
+                            Gender = patient == null ? 0 : patient.Gender,
+                            Age = patient == null ? 0 : patient.Age,
+                            AgeUnit = patient == null ? null : patient.AgeUnit,
+                            ContactPhone = patient == null ? null : patient.ContactPhone,
+                            IdNumber = patient == null ? null : patient.IdNumber,
+                            VisitType = patient == null ? null : patient.VisitType,
+                            IsInfectiousDisease = patient == null ? false : patient.IsInfectiousDisease,
+                            DiseaseOnsetTime = patient == null ? null : patient.DiseaseOnsetTime,
+                            EmergencyTime = patient == null ? null : patient.EmergencyTime,
+                            VisitStatus = patient == null ? null : patient.VisitStatus,
+                            VisitDate = patient == null ? default(DateTime) : patient.VisitDate,
+
+                            // 就诊信息
+                            ClinicId = clinic != null ? clinic.Id : Guid.Empty,
+                            DoctorId = clinic == null ? Guid.Empty : clinic.DoctorId,
+                            VisitDateTime = clinic == null ? default(DateTime) : clinic.VisitDateTime,
+                            DepartmentName = clinic == null ? null : clinic.DepartmentName,
+                            ChiefComplaint = clinic == null ? null : clinic.ChiefComplaint,
+                            PreliminaryDiagnosis = clinic == null ? null : clinic.PreliminaryDiagnosis,
+                            VisitTypeClinic = clinic == null ? null : clinic.VisitType,
+                            DispensingStatus = clinic == null ? 0 : clinic.DispensingStatus,
+                            ExecutionStatus = clinic == null ? 0 : (clinic.ExecutionStatus != null ? (int)clinic.ExecutionStatus : 0),
+                            ClinicRemarks = clinic == null ? null : clinic.Remarks,
+
+                            // 处方信息
+                            PrescriptionId = prescription != null ? prescription.Id : Guid.Empty,
+                            PrescriptionTemplateNumber = prescription == null ? 0 : prescription.PrescriptionTemplateNumber,
+                            MedicalAdvice = prescription == null ? null : prescription.MedicalAdvice,
+                            DrugItems = prescription == null || string.IsNullOrEmpty(prescription.DrugIds)
+                                ? new List<DrugItemDto>()
+                                : Newtonsoft.Json.JsonConvert.DeserializeObject<List<DrugItemDto>>(prescription.DrugIds),
+
+                            // 预约信息
+                            AppointmentId = appointment != null ? appointment.Id : Guid.Empty,
+                            AppointmentDateTime = appointment == null ? default(DateTime) : appointment.AppointmentDateTime,
+                            AppointmentStatus = appointment == null ? 0 : (appointment.Status != null ? (int)appointment.Status : 0),
+                            ActualFee = appointment == null ? 0 : appointment.ActualFee,
+                            AppointmentRemarks = appointment == null ? null : appointment.Remarks
+                        };
+
+            var result = query.ToList();
+
+            // 3. 补全药品明细的药品名称等信息
+            foreach (var dto in result)
             {
-                var entity = await _repository.GetAsync(id);
-                if (entity == null)
+                foreach (var drug in dto.DrugItems)
                 {
-                    throw new UserFriendlyException("病历不存在！");
+                    var drugInfo = drugs.FirstOrDefault(d => d.Id == drug.DrugId);
+                    if (drugInfo != null)
+                    {
+                        drug.DrugName = drugInfo.DrugName;
+                        drug.Specification = drugInfo.Specification;
+                        // ...补全其他药品字段
+                    }
                 }
-                var dto = ObjectMapper.Map<Sick, SickDto>(entity);
-                return ApiResult<SickDto>.Success(dto, ResultCode.Success);
             }
-            catch (Exception)
-            {
-                throw;
-            }
+
+            return ApiResult<List<SickFullInfoDto>>.Success(result, ResultCode.Success);
         }
 
+
         /// <summary>
-        /// 分页获取病历列表
+        /// 病历信息导出
         /// </summary>
-        /// <param name="input">查询参数</param>
         /// <returns></returns>
         [HttpGet]
-        public async Task<ApiResult<PagedResultDto<SickDto>>> GetListAsync([FromQuery] SickSearchDto search)
+        public FileResult ExportSickExcel()
         {
-            var list = await _repository.GetQueryableAsync();
+            // 1. 获取病历信息数据
+            var sickList = (from sick in _sickRepo.GetListAsync().Result
+                            join patient in _patientRepo.GetListAsync().Result on sick.BasicPatientId equals patient.Id into sj
+                            from patient in sj.DefaultIfEmpty()
+                            select new SickFullInfoDto
+                            {
+                                SickId = sick.Id,
+                                PatientName = patient != null ? patient.PatientName : string.Empty,
+                                Gender = patient != null ? patient.Gender : 0,
+                                Age = patient != null ? patient.Age : 0,
+                                AdmissionDiagnosis = sick.AdmissionDiagnosis,
+                                DischargeDiagnosis = sick.DischargeDiagnosis,
+                                DischargeTime = sick.DischargeTime,
+                                // ... 其他字段 ...
+                            }).ToList();
 
+            // 2. 创建Excel表
+            IWorkbook workbook = new XSSFWorkbook();
+            var sheet = workbook.CreateSheet("病历信息表");
 
+          
 
-            list = list.WhereIf(!string.IsNullOrWhiteSpace(search.PatientName), x => x.PatientName.Contains(search.PatientName))
-                       .WhereIf(!string.IsNullOrWhiteSpace(search.InpatientNumber), x => x.InpatientNumber.Contains(search.InpatientNumber))
-                       .WhereIf(!string.IsNullOrWhiteSpace(search.AdmissionDiagnosis), x => x.AdmissionDiagnosis.Contains(search.AdmissionDiagnosis));
+            // 3. 表头
+            var row0 = sheet.CreateRow(0);
+            row0.CreateCell(0).SetCellValue("病历ID");
+            row0.CreateCell(1).SetCellValue("患者ID");
+            row0.CreateCell(2).SetCellValue("患者姓名");
+            row0.CreateCell(3).SetCellValue("性别");
+            row0.CreateCell(4).SetCellValue("年龄");
+            row0.CreateCell(5).SetCellValue("年龄单位");
+            row0.CreateCell(6).SetCellValue("联系电话");
+            row0.CreateCell(7).SetCellValue("证件号");
+            row0.CreateCell(8).SetCellValue("就诊类型");
+            row0.CreateCell(9).SetCellValue("是否传染病");
+            row0.CreateCell(10).SetCellValue("发病时间");
+            row0.CreateCell(11).SetCellValue("急诊时间");
+            row0.CreateCell(12).SetCellValue("就诊状态");
+            row0.CreateCell(13).SetCellValue("就诊日期");
+            row0.CreateCell(14).SetCellValue("入院诊断");
+            row0.CreateCell(15).SetCellValue("出院诊断");
+            row0.CreateCell(16).SetCellValue("入院号");
+            row0.CreateCell(17).SetCellValue("出院科室");
+            row0.CreateCell(18).SetCellValue("出院时间");
+            row0.CreateCell(19).SetCellValue("主诉");
+            row0.CreateCell(20).SetCellValue("初步诊断");
+            row0.CreateCell(21).SetCellValue("医嘱");
+            row0.CreateCell(22).SetCellValue("药品明细");
+            row0.CreateCell(23).SetCellValue("预约ID");
+            row0.CreateCell(24).SetCellValue("预约时间");
+            row0.CreateCell(25).SetCellValue("预约状态");
+            row0.CreateCell(26).SetCellValue("实收费用");
+            row0.CreateCell(27).SetCellValue("预约备注");
 
-            var totalCount = await AsyncExecuter.CountAsync(list);
-            var items = await AsyncExecuter.ToListAsync(
-                list
-                .Skip((search.pageIndex - 1) * search.pageSize)
-                    .Take(search.pageSize)
+            // 4. 填充数据
+            int indexnum = 1;
+            foreach (var item in sickList)
+            {
+                var row = sheet.CreateRow(indexnum);
+                row.CreateCell(0).SetCellValue(item.SickId.ToString());
+                row.CreateCell(1).SetCellValue(item.BasicPatientId.ToString());
+                row.CreateCell(2).SetCellValue(item.PatientBaseName);
+                row.CreateCell(3).SetCellValue(item.Gender == 1 ? "男" : "女");
+                row.CreateCell(4).SetCellValue((double)item.Age);
+                row.CreateCell(5).SetCellValue(item.AgeUnit);
+                row.CreateCell(6).SetCellValue(item.ContactPhone);
+                row.CreateCell(7).SetCellValue(item.IdNumber);
+                row.CreateCell(8).SetCellValue(item.VisitType);
+                row.CreateCell(9).SetCellValue(item.IsInfectiousDisease ? "是" : "否");
+                row.CreateCell(10).SetCellValue(item.DiseaseOnsetTime?.ToString("yyyy-MM-dd HH:mm") ?? "");
+                row.CreateCell(11).SetCellValue(item.EmergencyTime?.ToString("yyyy-MM-dd HH:mm") ?? "");
+                row.CreateCell(12).SetCellValue(item.VisitStatus);
+                row.CreateCell(13).SetCellValue(item.VisitDate.ToString("yyyy-MM-dd") ?? "");
+                row.CreateCell(14).SetCellValue(item.AdmissionDiagnosis);
+                row.CreateCell(15).SetCellValue(item.DischargeDiagnosis);
+                row.CreateCell(16).SetCellValue(item.InpatientNumber);
+                row.CreateCell(17).SetCellValue(item.DischargeDepartment);
+                row.CreateCell(18).SetCellValue(item.DischargeTime?.ToString("yyyy-MM-dd HH:mm") ?? "");
+                row.CreateCell(19).SetCellValue(item.ChiefComplaint);
+                row.CreateCell(20).SetCellValue(item.PreliminaryDiagnosis);
+                row.CreateCell(21).SetCellValue(item.MedicalAdvice);
+                // 药品明细可拼接字符串
+                row.CreateCell(22).SetCellValue(
+                item.DrugItems != null
+                    ? string.Join(";", item.DrugItems.Select(d => d.DrugName + "x" + d.DrugName))
+                    : ""
             );
 
-            var dtos = ObjectMapper.Map<List<Sick>, List<SickDto>>(items);
-            var result = new PagedResultDto<SickDto>(totalCount, dtos);
+                row.CreateCell(23).SetCellValue(item.AppointmentId.ToString());
+         
+      
+                row.CreateCell(24).SetCellValue(item.AppointmentDateTime?.ToString("yyyy-MM-dd HH:mm") ?? "");
+                row.CreateCell(25).SetCellValue(item.AppointmentStatus.ToString());
+                row.CreateCell(26).SetCellValue(item.ActualFee.ToString());
+                row.CreateCell(27).SetCellValue(item.AppointmentRemarks);
+                indexnum++;
+            }
 
-            return ApiResult<PagedResultDto<SickDto>>.Success(result, ResultCode.Success);
+
+            // 5. 导出为字节流
+            byte[] s;
+            using (MemoryStream ms = new MemoryStream())
+            {
+                workbook.Write(ms);
+                s = ms.ToArray();
+            }
+
+            // 6. 返回文件
+            string contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            return new FileContentResult(s, contentType)
+            {
+                FileDownloadName="病历信息.xlsx"
+            };
         }
-
-        /// <summary>
-        /// 添加病历
-        /// </summary>
-        /// <param name="input">病历信息</param>
-        /// <returns></returns>
-        [HttpPost]
-        public async Task<ApiResult> CreateAsync(CreateUpdateSickDto input)
-        {
-            // 验证住院号唯一性
-            var exists = await _repository.AnyAsync(s => s.InpatientNumber == input.InpatientNumber);
-            if (exists)
-            {
-                throw new UserFriendlyException($"住院号 '{input.InpatientNumber}' 已存在！");
-            }
-
-            // 验证体温范围
-            if (input.Temperature < 30 || input.Temperature > 45)
-            {
-                throw new UserFriendlyException("体温必须在30~45℃之间！");
-            }
-
-            // 验证脉搏范围
-            if (input.Pulse < 20 || input.Pulse > 200)
-            {
-                throw new UserFriendlyException("脉搏必须在20~200次/min之间！");
-            }
-
-            // 验证呼吸范围
-            if (input.Breath < 5 || input.Breath > 60)
-            {
-                throw new UserFriendlyException("呼吸必须在5~60次/min之间！");
-            }
-
-
-            var entity = ObjectMapper.Map<CreateUpdateSickDto, Sick>(input);
-            await _repository.InsertAsync(entity);
-
-            return ApiResult.Success(ResultCode.Success);
-        }
-
-        /// <summary>
-        /// 更新病历信息
-        /// </summary>
-        /// <param name="id">病历Id</param>
-        /// <param name="input">更新参数</param>
-        /// <returns></returns>
-        [HttpPut]
-        public async Task<ApiResult> UpdateAsync(Guid id, CreateUpdateSickDto input)
-        {
-            var entity = await _repository.GetAsync(id);
-
-            // 验证体温范围
-            if (input.Temperature < 30 || input.Temperature > 45)
-            {
-                throw new UserFriendlyException("体温必须在30~45℃之间！");
-            }
-
-            // 验证脉搏范围
-            if (input.Pulse < 20 || input.Pulse > 200)
-            {
-                throw new UserFriendlyException("脉搏必须在20~200次/min之间！");
-            }
-
-            // 验证呼吸范围
-            if (input.Breath < 5 || input.Breath > 60)
-            {
-                throw new UserFriendlyException("呼吸必须在5~60次/min之间！");
-            }
-
-            // 验证出院时间：只有当状态不是"出院"时，才要求出院时间不能早于当前
-            if (input.Status != "出院" && input.DischargeTime < DateTime.Now)
-            {
-                throw new UserFriendlyException("对于非出院状态的病人，出院时间不能早于当前时间！");
-            }
-
-            ObjectMapper.Map(input, entity);
-            await _repository.UpdateAsync(entity);
-
-            return ApiResult.Success(ResultCode.Success);
-        }
-
-        /// <summary>
-        /// 删除病历
-        /// </summary>
-        /// <param name="id">病历Id</param>
-        /// <returns></returns>
-        [HttpDelete]
-        public async Task<ApiResult> DeleteAsync(Guid id)
-        {
-            var entity = await _repository.GetAsync(id);
-            if (entity == null)
-            {
-                throw new UserFriendlyException("病历不存在！");
-            }
-
-            await _repository.DeleteAsync(id);
-            return ApiResult.Success(ResultCode.Success);
-        }
-
-
-
 
     }
 }
