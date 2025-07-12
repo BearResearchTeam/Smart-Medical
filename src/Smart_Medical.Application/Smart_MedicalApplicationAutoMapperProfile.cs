@@ -96,10 +96,11 @@ public class Smart_MedicalApplicationAutoMapperProfile : Profile
         CreateMap<DoctorDepartment, GetDoctorDepartmentListDto>().ReverseMap();
         CreateMap<GetDoctorDepartmentSearchDto, DoctorDepartment>().ReverseMap();
         //医生
-        CreateMap<CreateUpdateDoctorAccountDto, DoctorAccount>().ReverseMap();
+        CreateMap<CreateUpdateDoctorAccountDto, DoctorAccount>().ReverseMap(); 
         CreateMap<DoctorAccount, DoctorAccountListDto>().ReverseMap();
-     
-           
+        CreateMap<DoctorAccountAuditDto, DoctorAudit>().ReverseMap();
+
+
         CreateMap<MedicalHistory, PharmaceuticalCompanyDto>();
         CreateMap<CreateUpdatePharmaceuticalCompanyDto, MedicalHistory>();
 

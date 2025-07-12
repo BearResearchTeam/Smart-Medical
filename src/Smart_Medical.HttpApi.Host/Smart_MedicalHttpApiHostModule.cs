@@ -227,9 +227,10 @@ public class Smart_MedicalHttpApiHostModule : AbpModule
                 options.SwaggerDoc("字典管理", new OpenApiInfo { Title = "字典管理", Version = "字典管理" });
                 options.SwaggerDoc("医疗管理", new OpenApiInfo { Title = "医疗管理", Version = "医疗管理" });
                 options.SwaggerDoc("用户登录", new OpenApiInfo { Title = "用户登录", Version = "用户登录" });
+                options.SwaggerDoc("图片上传", new OpenApiInfo { Title = "图片上传", Version = "图片上传" });
 
                 options.DocInclusionPredicate((doc, desc) =>
-                {
+              {
                     if (!desc.GroupName.IsNullOrWhiteSpace())
                     {
                         return doc == desc.GroupName;
@@ -270,7 +271,8 @@ public class Smart_MedicalHttpApiHostModule : AbpModule
                 var basePath = AppDomain.CurrentDomain.BaseDirectory;
                 var xmlPath = Path.Combine(basePath, "Smart_Medical.Application.xml");//这个就是刚刚配置的xml文件名
                 options.IncludeXmlComments(xmlPath, true);//默认的第二个参数是false，这个是controller的注释，记得修改
-
+                var apixmlPath = Path.Combine(basePath, "Smart_Medical.HttpApi.Host.xml");//这个就是刚刚配置的xml文件名
+                options.IncludeXmlComments(apixmlPath, true);//默认的第二个参数是false，这个是controller的注释，记得修改
 
                 options.HideAbpEndpoints(); // 可选：隐藏 ABP 默认生成的接口
             });
@@ -315,6 +317,7 @@ public class Smart_MedicalHttpApiHostModule : AbpModule
 
         app.UseCorrelationId();
         app.MapAbpStaticAssets();//静态资源
+        app.UseStaticFiles();
         app.UseRouting();
         app.UseCors();
         app.UseAuthentication();
@@ -349,6 +352,7 @@ public class Smart_MedicalHttpApiHostModule : AbpModule
             c.SwaggerEndpoint("/swagger/字典管理/swagger.json", "字典管理");
             c.SwaggerEndpoint("/swagger/医疗管理/swagger.json", "医疗管理");
             c.SwaggerEndpoint("/swagger/用户登录/swagger.json", "用户登录");
+            c.SwaggerEndpoint("/swagger/图片上传/swagger.json", "图片上传");
 
             // 模型的默认扩展深度，设置为 -1 完全隐藏模型
             c.DefaultModelsExpandDepth(1);

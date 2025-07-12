@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Smart_Medical.RBAC.RolePermissions;
 using Smart_Medical.RBAC.Roles;
 using Smart_Medical.RBAC.Users;
 using Smart_Medical.Until;
@@ -20,7 +21,7 @@ namespace Smart_Medical.RBAC.UserRoles
     /// </summary>
     [ApiExplorerSettings(GroupName = "用户角色关联管理")]
     [Dependency(ReplaceServices = true)]
-    [Authorize]
+    //[Authorize]
     public class UserRoleAppService : ApplicationService, IUserRoleAppService
     {
         private readonly IRepository<UserRole, Guid> _userRoleRepository;
@@ -115,6 +116,7 @@ namespace Smart_Medical.RBAC.UserRoles
 
             return ApiResult.Success(ResultCode.Success);
         }
+
         /// <summary>
         /// 根据ID删除一条用户角色的关联记录
         /// </summary>
@@ -307,6 +309,36 @@ namespace Smart_Medical.RBAC.UserRoles
             }
 
             return ApiResult.Success(ResultCode.Success);
+        }
+
+        public async Task<ApiResult<List<RoleUserGroupDto>>> GetRoleUserGroupsAsync()
+        {
+            var queryable = await _userRoleRepository.GetQueryableAsync();
+
+            // 联查User和Role
+            queryable = queryable.Include(ur => ur.User).Include(ur => ur.Role);
+
+            // 查询所有数据
+            var list = await AsyncExecuter.ToListAsync(queryable);
+
+            // 分组处理
+            var result = list.GroupBy(ur => ur.Role.RoleName)
+                .Select(g => new RoleUserGroupDto
+                {
+                    RoleName = g.Key,
+                    Users = g
+                    .Select(ur => new UserSimpleDto
+                    {
+                        UserId = ur.UserId,
+                        UserName = ur.User.UserName
+                    })
+                    .DistinctBy(u => u.UserId) 
+                    .ToList()
+
+                }).ToList();
+
+
+            return ApiResult<List<RoleUserGroupDto>>.Success(result, ResultCode.Success);
         }
     }
 }

@@ -24,17 +24,15 @@ namespace Smart_Medical.DoctorvVsit.DoctorAccounts
         /// 获取医生账户列表(分页)
         /// </summary>
         Task<ApiResult<PageResult<List<DoctorAccountListDto>>>> GetDoctorAccountList(DoctorAccountsearch seach);
+        Task<ApiResult<PageResult<List<GetDoctorAuditDto>>>> GetDoctorAccountAuditList(DoctorAccountsearch seach);
         /// <summary>
         /// 修改医生账户
         /// </summary>
         /// <param name="id"></param>
         /// <param name="input"></param>
         /// <returns></returns>
-        Task<ApiResult> EditDoctorAccount(Guid id, CreateUpdateDoctorAccountDto input);
-        /// <summary>
-        /// 获取医生账户列表
-        /// </summary>
-        /// <returns></returns>
+        //Task<ApiResult> EditDoctorAccount(Guid id, CreateUpdateDoctorAccountDto input);
+    
         Task<ApiResult> DeleteDoctorAccount([FromQuery] string idsString);
     }
 }

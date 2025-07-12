@@ -9,7 +9,7 @@ using Volo.Abp.Domain.Entities.Auditing;
 namespace Smart_Medical.DoctorvVsit
 {
     /// <summary>
-    /// 医生信息表 流程引擎
+    /// 医生信息表 申请医生信息
     /// </summary>
     public class DoctorAccount : FullAuditedAggregateRoot<Guid>
     {
@@ -19,11 +19,11 @@ namespace Smart_Medical.DoctorvVsit
         public Guid DepartmentId { get; set; }
 
         /// <summary>
-        /// 是否审核
+        /// 是否审核 0:审核中 1:审核通过 2:审核未通过 按钮
         /// </summary>
         public int IsActive { get; set; }=0;
         /// <summary>
-        /// 医生个人头像
+        /// 医生个人头像 图片上传
         /// </summary>
         public string Doctorimgs { get; set; } = string.Empty;
 
@@ -35,21 +35,24 @@ namespace Smart_Medical.DoctorvVsit
         public string AccountId { get; set; } = string.Empty;
 
         /// <summary>
-        /// 医生工号
+        /// 医生工号 后端自动生成
         /// </summary>
         //[Required(ErrorMessage = "工号不能为空")]
         [StringLength(100, ErrorMessage = "工号长度不能超过100个字符")]
         public string EmployeeId { get; set; } = string.Empty;
 
         /// <summary>
-        /// 医生姓名
+        /// 医生姓名 
         /// </summary>
         [Required(ErrorMessage = "姓名不能为空")]
         [StringLength(20, ErrorMessage = "姓名长度不能超过20个字符")]
         public string EmployeeName { get; set; } = string.Empty;
         /// <summary>
-        /// 医生手机号
+        /// 医生手机号 
         /// </summary>
+        [Required(ErrorMessage = "医生手机号不能为空")]
+        [StringLength(11, ErrorMessage = "手机号 长度不能超过11个字符")]
+
         public string EmployeePhone { get; set; } = string.Empty;
         /// <summary>
         /// 性别
@@ -81,7 +84,6 @@ namespace Smart_Medical.DoctorvVsit
         /// 医生证书
         /// </summary>
         public string Certificate { get; set; }
-
 
         /// <summary>
         /// 审核人

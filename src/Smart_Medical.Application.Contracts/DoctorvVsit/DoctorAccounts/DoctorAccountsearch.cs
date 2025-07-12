@@ -10,5 +10,6 @@ namespace Smart_Medical.DoctorvVsit.DoctorAccounts
     public class DoctorAccountsearch:PagedAndSortedResultRequestDto
     {
         public string? EmployeeName { get; set; }
+        public int? States { get; set; }
     }
 }

@@ -80,6 +80,10 @@ namespace Smart_Medical.DoctorvVsit.DoctorAccounts
         /// 医生证书
         /// </summary>
         public string Certificate { get; set; }
+        /// <summary>
+        /// 审核人
+        /// </summary>
+        public string AuditName { get; set; }
     }
 
     /// <summary>

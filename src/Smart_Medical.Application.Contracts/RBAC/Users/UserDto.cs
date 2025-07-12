@@ -23,7 +23,7 @@ namespace Smart_Medical.RBAC.Users
         //public string UserEmail { get; set; }
         //public string UserPhone { get; set; }
         //public bool? UserSex { get; set; }
-       // public List<string> Permissions { get; set; }
+        public List<string> PermissionCode { get; set; }
         //public List<string> Roles { get; set; }
 
         // 导航属性的DTO，用于展示关联的用户角色信息
