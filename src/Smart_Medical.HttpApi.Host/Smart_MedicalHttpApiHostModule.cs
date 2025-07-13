@@ -227,6 +227,7 @@ public class Smart_MedicalHttpApiHostModule : AbpModule
                 options.SwaggerDoc("收费发药管理", new OpenApiInfo { Title = "收费发药管理", Version = "收费发药管理" });
                 options.SwaggerDoc("字典管理", new OpenApiInfo { Title = "字典管理", Version = "字典管理" });
                 options.SwaggerDoc("医疗管理", new OpenApiInfo { Title = "医疗管理", Version = "医疗管理" });
+                options.SwaggerDoc("设备管理", new OpenApiInfo { Title = "设备管理", Version = "设备管理" });
                 options.SwaggerDoc("用户登录", new OpenApiInfo { Title = "用户登录", Version = "用户登录" });
                 options.SwaggerDoc("扣子空间智能体", new OpenApiInfo { Title = "扣子空间智能体", Version = "扣子空间智能体" });
 
@@ -373,6 +374,7 @@ public class Smart_MedicalHttpApiHostModule : AbpModule
             c.SwaggerEndpoint("/swagger/收费发药管理/swagger.json", "收费发药管理");
             c.SwaggerEndpoint("/swagger/字典管理/swagger.json", "字典管理");
             c.SwaggerEndpoint("/swagger/医疗管理/swagger.json", "医疗管理");
+            c.SwaggerEndpoint("/swagger/设备管理/swagger.json", "设备管理");
             c.SwaggerEndpoint("/swagger/用户登录/swagger.json", "用户登录");
             c.SwaggerEndpoint("/swagger/扣子空间智能体/swagger.json", "扣子空间智能体");
 
