@@ -185,6 +185,7 @@ namespace Smart_Medical.Medical
         public FileResult ExportSickExcel()
         {
 
+
             var sickList = (from sick in _sickRepo.GetListAsync().Result
                             join patient in _patientRepo.GetListAsync().Result on sick.BasicPatientId equals patient.Id into sj
                             from patient in sj.DefaultIfEmpty()
