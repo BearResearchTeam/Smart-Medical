@@ -22,7 +22,7 @@ namespace Smart_Medical.Pharmacy.InAndOutWarehouse
         /// <summary>
         /// 法人
         /// </summary>
-        public string OrmName { get; set; }
+        public Guid PharmaceuticalCompanyId { get; set; }
 
 
 
