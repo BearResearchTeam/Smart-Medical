@@ -23,6 +23,7 @@ namespace Smart_Medical.Pharmacy.InAndOutWarehouse
         public DateTime CreationTime { get; set; }
 
         // 药品管理字段
+        public int  MedicalID { get; set; }
         public string DrugName { get; set; }
         public string DrugCode { get; set; }
         public string Pinyin { get; set; }

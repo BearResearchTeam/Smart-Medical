@@ -2,11 +2,13 @@
 
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
+using NPOI.SS.Formula.Functions;
 using NPOI.SS.UserModel;
 using NPOI.XSSF.UserModel;
 using Smart_Medical.Application.Contracts.Medical;
 using Smart_Medical.DoctorvVsit;
 using Smart_Medical.Medical.Smart_Medical.Medical;
+using Smart_Medical.OutpatientClinic.Dtos;
 using Smart_Medical.OutpatientClinic.Dtos.Parameter;
 using Smart_Medical.Patient;
 using Smart_Medical.Pharmacy;
@@ -20,7 +22,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.Specifications;
 using Volo.Abp.Uow;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 
 namespace Smart_Medical.Medical
 {
@@ -141,8 +145,8 @@ namespace Smart_Medical.Medical
                             PrescriptionTemplateNumber = prescription == null ? 0 : prescription.PrescriptionTemplateNumber,
                             MedicalAdvice = prescription == null ? null : prescription.MedicalAdvice,
                             DrugItems = prescription == null || string.IsNullOrEmpty(prescription.DrugIds)
-                                ? new List<DrugItemDto>()
-                                : Newtonsoft.Json.JsonConvert.DeserializeObject<List<DrugItemDto>>(prescription.DrugIds),
+                                ? new List<Application.Contracts.Medical.DrugItemDto>()
+                                : Newtonsoft.Json.JsonConvert.DeserializeObject<List<Application.Contracts.Medical.DrugItemDto>>(prescription.DrugIds),
 
                             // 预约信息
                             AppointmentId = appointment != null ? appointment.Id : Guid.Empty,
@@ -180,11 +184,6 @@ namespace Smart_Medical.Medical
         [HttpGet]
         public FileResult ExportSickExcel()
         {
-            var list = await _repository.GetQueryableAsync();
-            list = list.WhereIf(!string.IsNullOrWhiteSpace(search.PatientName), x => x.PatientName.Contains(search.PatientName))
-                       .WhereIf(!string.IsNullOrWhiteSpace(search.InpatientNumber), x => x.InpatientNumber.Contains(search.InpatientNumber))
-                       .WhereIf(!string.IsNullOrWhiteSpace(search.AdmissionDiagnosis), x => x.AdmissionDiagnosis.Contains(search.AdmissionDiagnosis));
-            // 1. 获取病历信息数据
             var sickList = (from sick in _sickRepo.GetListAsync().Result
                             join patient in _patientRepo.GetListAsync().Result on sick.BasicPatientId equals patient.Id into sj
                             from patient in sj.DefaultIfEmpty()
@@ -307,48 +306,98 @@ namespace Smart_Medical.Medical
     var drugs = await _drugRepo.GetQueryableAsync();
     var companies = await _commpany.GetQueryableAsync();
 
-    var query = from inStock in inStocks
-                join drug in drugs on inStock.DrugId equals drug.Id
-                join company in companies on inStock.PharmaceuticalCompanyId equals company.Id
-                select new DrugInStockCompanyFullDto
-                {
-                    // 药品入库
-                    InStockId = inStock.Id,
-                    DrugId = inStock.Id,
-                    Quantity = inStock.Quantity,
-                    UnitPrice = inStock.UnitPrice,
-                    TotalAmount = inStock.TotalAmount,
-                    ProductionDate = inStock.ProductionDate,
-                    ExpiryDate = inStock.ExpiryDate,
-                    BatchNumber = inStock.BatchNumber,
-                    Supplier = inStock.Supplier,
-                    Status = inStock.Status,
-                    CreationTime = inStock.CreationTime,
 
-                    // 药品管理
-                    DrugName = drug.DrugName,
-                    Specification = drug.Specification,
-                    PurchasePrice = drug.PurchasePrice,
-                    SalePrice = drug.SalePrice,
-                    Stock = drug.Stock,
-                    StockUpper = drug.StockUpper,
-                    StockLower = drug.StockLower,
-                    Effect = drug.Effect,
-                    DrugProductionDate = drug.ProductionDate,
-                    DrugExpiryDate = drug.ExpiryDate,
+            
 
 
-                    // 制药公司
-                    CompanyId = company.Id,
-                    CompanyName = company.CompanyName,
-                    ContactPerson = company.ContactPerson,
-                    ContactPhone = company.ContactPhone,
-                    Address = company.Address,
 
-                };
+            var query = from drug in drugs
+                        join inStock in inStocks on drug.Id equals inStock.DrugId 
+                        join company in companies on inStock.PharmaceuticalCompanyId equals company.CommpanyId 
+                        select new DrugInStockCompanyFullDto
+                        {
+                            // 药品入库
+                            InStockId = inStock.Id,
+                            DrugId = inStock.PharmaceuticalCompanyId,
+                            Quantity = inStock.Quantity,
+                            UnitPrice = inStock.UnitPrice,
+                            TotalAmount = inStock.TotalAmount,
+                            ProductionDate = inStock.ProductionDate,
+                            ExpiryDate = inStock.ExpiryDate,
+                            BatchNumber = inStock.BatchNumber,
+                            Supplier = inStock.Supplier,
+                            Status = inStock.Status,
+                            CreationTime = inStock.CreationTime,
 
-    var result = query.ToList();
-    return ApiResult<List<DrugInStockCompanyFullDto>>.Success(result, ResultCode.Success);
+                            // 药品管理
+                            MedicalID = drug.Id,
+                            DrugName = drug.DrugName,
+                            Specification = drug.Specification,
+                            PurchasePrice = drug.PurchasePrice,
+                            SalePrice = drug.SalePrice,
+                            Stock = drug.Stock,
+                            StockUpper = drug.StockUpper,
+                            StockLower = drug.StockLower,
+                            Effect = drug.Effect,
+                            DrugProductionDate = drug.ProductionDate,
+                            DrugExpiryDate = drug.ExpiryDate,
+
+
+                            // 制药公司
+                            CompanyId = company.Id,
+                            CompanyName = company.CompanyName,
+                            ContactPerson = company.ContactPerson,
+                            ContactPhone = company.ContactPhone,
+                            Address = company.Address,
+                        };
+
+
+
+            var result = query
+                            .AsEnumerable()
+                            .GroupBy(item => new
+                            {
+                                item.MedicalID,
+                            })
+                            .Select(g => g.First()) 
+                            .Select(item => new DrugInStockCompanyFullDto
+                            {
+                                // 药品入库
+                                InStockId = item.InStockId,
+                                DrugId = item.DrugId,
+                                Quantity = item.Quantity,
+                                UnitPrice = item.UnitPrice,
+                                TotalAmount = item.TotalAmount,
+                                ProductionDate = item.ProductionDate,
+                                ExpiryDate = item.ExpiryDate,
+                                BatchNumber = item.BatchNumber,
+                                Supplier = item.Supplier,
+                                Status = item.Status,
+                                CreationTime = item.CreationTime,
+
+                                MedicalID = item.MedicalID ,
+                                DrugName = item.DrugName ,
+                                Specification = item.Specification ,
+                                PurchasePrice = item.PurchasePrice ,
+                                SalePrice = item.SalePrice ,
+                                Stock = item.Stock ,
+                                StockUpper = item.StockUpper ,
+                                StockLower = item.StockLower ,
+                                Effect = item.Effect ,
+                                DrugProductionDate = item.DrugProductionDate ,
+                                DrugExpiryDate = item.DrugExpiryDate,
+
+
+                                CompanyId = item.CompanyId,
+                                CompanyName = item.CompanyName,
+                                ContactPerson = item.ContactPerson,
+                                ContactPhone = item.ContactPhone,
+                                Address = item.Address,
+                            })
+                            .ToList();
+
+
+            return ApiResult<List<DrugInStockCompanyFullDto>>.Success(result, ResultCode.Success);
 }
 
     }
