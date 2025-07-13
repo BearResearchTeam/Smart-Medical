@@ -7,6 +7,8 @@ using Smart_Medical.Dictionarys.DictionaryTypes;
 using Smart_Medical.DoctorvVsit;
 using Smart_Medical.DoctorvVsit.DockerDepartments;
 using Smart_Medical.DoctorvVsit.DoctorAccounts;
+using Smart_Medical.Equipment;
+using Smart_Medical.Equipment.Dtos;
 using Smart_Medical.Medical;
 using Smart_Medical.OutpatientClinic.Dtos;
 using Smart_Medical.Patient;
@@ -89,6 +91,8 @@ public class Smart_MedicalApplicationAutoMapperProfile : Profile
         CreateMap<BasicPatientInfo, UpdPatientDto>().ReverseMap();
         CreateMap<Sick, HospitalizedDto>().ReverseMap();
         CreateMap<Sick, CreateUpdateHospitalizedDto>().ReverseMap();
+        CreateMap<CreateUpdateEquipmentManagementDto, EquipmentManagement>().ReverseMap();
+        CreateMap<EquipmentManagement, EquipmentManagementDto>().ReverseMap();
         #endregion
         //CreateMap<List<Medication>, List<MedicationDto>>().ReverseMap();
         //科室
