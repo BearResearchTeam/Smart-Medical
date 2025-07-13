@@ -16,4 +16,17 @@ namespace Smart_Medical.Equipment.Dtos
         public DateTime? LastMaintenanceTime { get; set; }
         public string? Remark { get; set; }
     }
+
+    public class GeEquipmentParameterDtos
+    {
+        /// <summary>
+        /// 当前页码，从 1 开始
+        /// </summary>
+        public int PageIndex { get; set; } = 1;
+
+        /// <summary>
+        /// 每页大小
+        /// </summary>
+        public int PageSize { get; set; } = 10;
+    }
 } 
