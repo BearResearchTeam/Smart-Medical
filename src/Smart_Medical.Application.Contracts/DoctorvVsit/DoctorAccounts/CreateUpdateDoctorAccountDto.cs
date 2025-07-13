@@ -26,8 +26,7 @@ namespace Smart_Medical.DoctorvVsit.DoctorAccounts
         /// <summary>
         /// 医生职称
         /// </summary>
-        [Required(ErrorMessage = "账户标识不能为空")]
-        [StringLength(200, ErrorMessage = "账户标识长度不能超过200个字符")]
+        [StringLength(200, ErrorMessage = "医生职称长度不能超过200个字符")]
         public string AccountId { get; set; } = string.Empty;
 
         /// <summary>
