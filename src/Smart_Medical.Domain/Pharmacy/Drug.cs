@@ -10,9 +10,6 @@ namespace Smart_Medical.Pharmacy
 {
     public class Drug : FullAuditedAggregateRoot<int>
     {
-
-       
-
         /// <summary>
         /// 药品名称s
         /// </summary>
@@ -33,9 +30,6 @@ namespace Smart_Medical.Pharmacy
         [Required]
         [StringLength(32)]
         public string FeeName { get; set; }
-
-
-
         /// <summary>
         ///  剂型
         /// </summary>

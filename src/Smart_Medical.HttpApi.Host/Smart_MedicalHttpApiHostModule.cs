@@ -47,7 +47,7 @@ namespace Smart_Medical;
     typeof(AbpAspNetCoreMvcUiLeptonXLiteThemeModule),
     typeof(AbpSwashbuckleModule),
     typeof(AbpAspNetCoreSerilogModule),
-    typeof(AbpCachingStackExchangeRedisModule)
+    typeof(AbpCachingStackExchangeRedisModule)//集成Redis作为缓存服务
 )]
 public class Smart_MedicalHttpApiHostModule : AbpModule
 {
@@ -75,7 +75,7 @@ public class Smart_MedicalHttpApiHostModule : AbpModule
         services.AddSingleton<JwtSecurityTokenHandler>();
 
         //services.addsc
-
+        // 反伪造令牌 防止 跨站请求伪造
         Configure<AbpAntiForgeryOptions>(options =>
         {
             options.TokenCookie.Expiration = TimeSpan.FromDays(365);
@@ -103,6 +103,7 @@ public class Smart_MedicalHttpApiHostModule : AbpModule
         ConfigureVirtualFileSystem(context);
         ConfigureCors(context, configuration);
         ConfigureSwaggerServices(context, configuration);
+        ConfigureKouZiAI(context, configuration);
     }
 
     private void ConfigureAuthentication(ServiceConfigurationContext context)
@@ -219,13 +220,16 @@ public class Smart_MedicalHttpApiHostModule : AbpModule
                 options.SwaggerDoc("制药公司管理", new OpenApiInfo { Title = "制药公司管理", Version = "制药公司管理" });
                 options.SwaggerDoc("药品入库管理", new OpenApiInfo { Title = "药品入库管理", Version = "药品入库管理" });
                 options.SwaggerDoc("患者管理", new OpenApiInfo { Title = "患者管理", Version = "患者管理" });
+                options.SwaggerDoc("住院管理", new OpenApiInfo { Title = "住院管理", Version = "住院管理" });
                 options.SwaggerDoc("病种管理", new OpenApiInfo { Title = "病种管理", Version = "病种管理" }); 
                 options.SwaggerDoc("科室管理", new OpenApiInfo { Title = "科室管理", Version = "科室管理" });
                 options.SwaggerDoc("医生管理", new OpenApiInfo { Title = "医生管理", Version = "医生管理" });
                 options.SwaggerDoc("收费发药管理", new OpenApiInfo { Title = "收费发药管理", Version = "收费发药管理" });
                 options.SwaggerDoc("字典管理", new OpenApiInfo { Title = "字典管理", Version = "字典管理" });
                 options.SwaggerDoc("医疗管理", new OpenApiInfo { Title = "医疗管理", Version = "医疗管理" });
+                options.SwaggerDoc("设备管理", new OpenApiInfo { Title = "设备管理", Version = "设备管理" });
                 options.SwaggerDoc("用户登录", new OpenApiInfo { Title = "用户登录", Version = "用户登录" });
+                options.SwaggerDoc("扣子空间智能体", new OpenApiInfo { Title = "扣子空间智能体", Version = "扣子空间智能体" });
 
                 options.DocInclusionPredicate((doc, desc) =>
                 {
@@ -295,6 +299,29 @@ public class Smart_MedicalHttpApiHostModule : AbpModule
         });
     }
 
+    private void ConfigureKouZiAI(ServiceConfigurationContext context, IConfiguration configuration)
+    {
+        context.Services.AddHttpClient("KouZiAI", client =>
+        {
+            // 扣子空间API v3版本基础地址
+            client.BaseAddress = new Uri(configuration["KouZiAI:BaseUrl"] ?? "https://api.coze.cn");
+            
+            // 添加认证Token到请求头 - 使用Bearer Token格式
+            var token = configuration["KouZiAI:Token"];
+            if (!string.IsNullOrEmpty(token))
+            {
+                client.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+            }
+            
+            // 添加Content-Type请求头
+            client.DefaultRequestHeaders.Add("Accept", "application/json");
+            client.DefaultRequestHeaders.Add("User-Agent", "Smart_Medical/1.0");
+            
+            // 设置超时时间
+            client.Timeout = TimeSpan.FromSeconds(configuration.GetValue<int>("KouZiAI:TimeoutSeconds", 30));
+        });
+    }
+
     public override void OnApplicationInitialization(ApplicationInitializationContext context)
     {
         var app = context.GetApplicationBuilder();
@@ -313,7 +340,7 @@ public class Smart_MedicalHttpApiHostModule : AbpModule
         }
 
         app.UseCorrelationId();
-        app.MapAbpStaticAssets();
+        app.MapAbpStaticAssets();//静态资源
         app.UseRouting();
         app.UseCors();
         app.UseAuthentication();
@@ -340,13 +367,16 @@ public class Smart_MedicalHttpApiHostModule : AbpModule
             c.SwaggerEndpoint("/swagger/制药公司管理/swagger.json", "制药公司管理");
             c.SwaggerEndpoint("/swagger/药品入库管理/swagger.json", "药品入库管理");
             c.SwaggerEndpoint("/swagger/患者管理/swagger.json", "患者管理");
+            c.SwaggerEndpoint("/swagger/住院管理/swagger.json", "住院管理");
             c.SwaggerEndpoint("/swagger/病种管理/swagger.json", "病种管理");
             c.SwaggerEndpoint("/swagger/科室管理/swagger.json", "科室管理");
             c.SwaggerEndpoint("/swagger/医生管理/swagger.json", "医生管理");
             c.SwaggerEndpoint("/swagger/收费发药管理/swagger.json", "收费发药管理");
             c.SwaggerEndpoint("/swagger/字典管理/swagger.json", "字典管理");
             c.SwaggerEndpoint("/swagger/医疗管理/swagger.json", "医疗管理");
+            c.SwaggerEndpoint("/swagger/设备管理/swagger.json", "设备管理");
             c.SwaggerEndpoint("/swagger/用户登录/swagger.json", "用户登录");
+            c.SwaggerEndpoint("/swagger/扣子空间智能体/swagger.json", "扣子空间智能体");
 
             // 模型的默认扩展深度，设置为 -1 完全隐藏模型
             c.DefaultModelsExpandDepth(1);

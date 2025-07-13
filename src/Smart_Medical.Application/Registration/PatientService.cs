@@ -85,7 +85,7 @@ namespace Smart_Medical.Registration
         /// <param name="input">患者就诊登记信息</param>
         /// <returns>接口返回结果</returns>
         //[UnitOfWork]
-        public async Task<ApiResult> RegistrationPatientAsync(InsertPatientDto input)
+        public async Task<ApiResult<ApiResult>> RegistrationPatientAsync(InsertPatientDto input)
         {
             try
             {
@@ -117,7 +117,7 @@ namespace Smart_Medical.Registration
                         }
 
                         if (patient == null)
-                            return ApiResult.Fail("患者信息登记失败，请稍后重试！", ResultCode.Error);
+                            return ApiResult<ApiResult>.Fail("患者信息登记失败，请稍后重试！", ResultCode.Error);
 
                         // ================================
                         // 2. 创建就诊流程记录
@@ -132,7 +132,7 @@ namespace Smart_Medical.Registration
                         doctorClinic.VisitType = existingPatient == null ? "初诊" : "复诊";
 
                         if (await _doctorclinRepo.InsertAsync(doctorClinic) == null)
-                            return ApiResult.Fail("就诊流程创建失败，请稍后重试！", ResultCode.Error);
+                            return ApiResult<ApiResult>.Fail("就诊流程创建失败，请稍后重试！", ResultCode.Error);
 
                         // ================================
                         // 3. 创建患者病历信息（初始化）
@@ -140,10 +140,10 @@ namespace Smart_Medical.Registration
 
                         var sick = new Sick
                         {
+                            PatientName = input.PatientName,
                             BasicPatientId = patient.Id,
                             Status = "新建",              // 病历状态必须有值，防止 Required 报错
                             InpatientNumber = "",
-
                             AdmissionDiagnosis = "",
                             DischargeTime = DateTime.Now,
                             CreationTime = patient.VisitDate,
@@ -154,22 +154,22 @@ namespace Smart_Medical.Registration
                         };
 
                         if (await _sickRepo.InsertAsync(sick) == null)
-                            return ApiResult.Fail("病历信息创建失败，请稍后重试！", ResultCode.Error);
-
+                            return ApiResult<ApiResult>.Fail("病历信息创建失败，请稍后重试！", ResultCode.Error);
+                        
                         // ================================
                         // 4. 提交事务，结束登记流程
                         // ================================
 
                         await uow.CompleteAsync();
 
-                        return ApiResult.Success(ResultCode.Success);
+                        return ApiResult<ApiResult>.Success(ApiResult.Success(ResultCode.Success), ResultCode.Success);
                     }
                     catch (Exception ex)
                     {
                         // ================================
                         // 异常处理（输出异常信息）
                         // ================================
-                        return ApiResult.Fail("系统异常：" + ex.Message, ResultCode.Error);
+                        return ApiResult<ApiResult>.Fail("系统异常：" + ex.Message, ResultCode.Error);
                     }
                 }
             }
@@ -355,7 +355,7 @@ namespace Smart_Medical.Registration
         /// </summary>
         /// <param name="input"></param>
         /// <returns></returns>        
-        public async Task<ApiResult> DoctorsPrescription(DoctorPrescriptionDto input)
+        public async Task<ApiResult<ApiResult>> DoctorsPrescription(DoctorPrescriptionDto input)
         {
             try
             {
@@ -363,21 +363,21 @@ namespace Smart_Medical.Registration
                 {
                     //判断输入参数是否完整
                     if (input == null || input.PatientNumber == Guid.Empty)
-                        return ApiResult.Fail("患者信息不完整！", ResultCode.Error);
+                        return ApiResult<ApiResult>.Fail("患者信息不完整！", ResultCode.Error);
 
                     //如果使用处方模板，则必须提供模板编号
                     if (input.IsActive)
                     {
                         if (input.PrescriptionItems == null)
                         {
-                            return ApiResult.Fail("处方项不能为空！", ResultCode.Error);
+                            return ApiResult<ApiResult>.Fail("处方项不能为空！", ResultCode.Error);
                         }
                     }
 
                     // 获取患者基本信息
                     var patient = await _patientRepo.FindAsync(input.PatientNumber);
                     if (patient == null)
-                        return ApiResult.Fail("未找到该患者信息！", ResultCode.NotFound);
+                        return ApiResult<ApiResult>.Fail("未找到该患者信息！", ResultCode.NotFound);
 
                     // =============================================
                     // 根据 PrescriptionItems 插入处方明细表
@@ -390,18 +390,17 @@ namespace Smart_Medical.Registration
                         var drug = await _drugRepo.FirstOrDefaultAsync(d => d.Id == item.DrugId);
                         //药品不存在返回错误信息
                         if (drug == null)
-                            return ApiResult.Fail($"未找到药品ID为 {item.DrugId} 的药品信息", ResultCode.Error);
+                            return ApiResult<ApiResult>.Fail($"未找到药品ID为 {item.DrugId} 的药品信息", ResultCode.Error);
 
                         //查找的药品库存是否充足
                         int remainingStock = drug.Stock - item.Number;
                         if (remainingStock < 0)
-                            return ApiResult.Fail($"药品 {drug.DrugName} 库存不足，无法开具处方", ResultCode.Error);
-
+                            return ApiResult<ApiResult>.Fail($"药品 {drug.DrugName} 库存不足，无法开具处方", ResultCode.Error);
+                        
                         //提前 return，但没有调用 uow.CompleteAsync()，那事务是不会提交的，会自动回滚
-
                         // 更新药品库存
                         drug.Stock = remainingStock;
-                        await _drugRepo.UpdateAsync(drug);
+                        //await _drugRepo.UpdateAsync(drug);
                     }
 
                     //创建处方记录
@@ -429,7 +428,7 @@ namespace Smart_Medical.Registration
                         );
 
                     if (doctorClinic == null)
-                        return ApiResult.Fail("未找到就诊记录！", ResultCode.NotFound);
+                        return ApiResult<ApiResult>.Fail("未找到就诊记录！", ResultCode.NotFound);
 
                     // 更新就诊记录状态为"已就诊"
                     doctorClinic.ExecutionStatus = ExecutionStatus.Completed;
@@ -437,12 +436,12 @@ namespace Smart_Medical.Registration
 
                     await uow.CompleteAsync();
 
-                    return ApiResult.Success(ResultCode.Success);
+                    return ApiResult<ApiResult>.Success(ApiResult.Success(ResultCode.Success), ResultCode.Success);
                 }
             }
             catch (Exception ex)
             {
-                return ApiResult.Fail("系统错误：" + ex.Message, ResultCode.Error);
+                return ApiResult<ApiResult>.Fail("系统错误：" + ex.Message, ResultCode.Error);
             }
         }
 

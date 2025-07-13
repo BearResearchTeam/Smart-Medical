@@ -27,6 +27,7 @@
     <PackageReference Include="Volo.Abp.AspNetCore.Serilog" Version="9.2.0" />
     <PackageReference Include="Volo.Abp.EntityFrameworkCore.MySQL" Version="9.2.0" />
     <PackageReference Include="Volo.Abp.Swashbuckle" Version="9.2.0" />
+    <PackageReference Include="System.IO" Version="4.3.0" />
   </ItemGroup>
 
   <ItemGroup>

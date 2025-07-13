@@ -20,7 +20,7 @@ namespace Smart_Medical.OutpatientClinic.IServices
         /// 登记患者信息
         /// </summary>
         /// <returns></returns>
-        Task<ApiResult> RegistrationPatientAsync(InsertPatientDto input);
+        Task<ApiResult<ApiResult>> RegistrationPatientAsync(InsertPatientDto input);
 
         /// <summary>
         /// 就诊患者
@@ -47,7 +47,7 @@ namespace Smart_Medical.OutpatientClinic.IServices
         /// </summary>
         /// <param name="input"></param>
         /// <returns></returns>
-        Task<ApiResult> DoctorsPrescription(DoctorPrescriptionDto input);
+        Task<ApiResult<ApiResult>> DoctorsPrescription(DoctorPrescriptionDto input);
 
         /// <summary>
         /// 查询当前用户下所有关联患者

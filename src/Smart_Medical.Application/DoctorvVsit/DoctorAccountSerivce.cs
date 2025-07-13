@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Smart_Medical.DoctorvVsit.DoctorAccounts;
 using Smart_Medical.RBAC;
 using Smart_Medical.Until;
@@ -14,18 +15,21 @@ using Volo.Abp.Domain.Repositories;
 
 namespace Smart_Medical.DoctorvVsit
 {
+    /// <summary>
+    /// 医生管理
+    /// </summary>
     [ApiExplorerSettings(GroupName = "医生管理")]
-    public class DoctorAccountSerivce:ApplicationService,IDoctorAccountSerivce
+    public class DoctorAccountSerivce : ApplicationService, IDoctorAccountSerivce
     {
         // 定义一个常量作为缓存键，这是这个特定缓存项在 Redis 中的唯一标识。
         // 使用一个清晰且唯一的键很重要。
         private const string CacheKey = "SmartMedical:doctor:All"; // 建议使用更具体的键名和前缀
-        private readonly IRepository<DoctorAccount,Guid> doctors;
+        private readonly IRepository<DoctorAccount, Guid> doctors;
         private readonly IRepository<DoctorDepartment, Guid> dept;
         private readonly IRepository<User, Guid> users;
         private readonly IRedisHelper<List<DoctorAccountListDto>> doctorredis;
 
-        public DoctorAccountSerivce(IRepository<DoctorAccount, Guid> doctors, IRepository<DoctorDepartment, Guid> dept,IRepository<User, Guid> users,IRedisHelper<List<DoctorAccountListDto>> doctorredis)
+        public DoctorAccountSerivce(IRepository<DoctorAccount, Guid> doctors, IRepository<DoctorDepartment, Guid> dept, IRepository<User, Guid> users, IRedisHelper<List<DoctorAccountListDto>> doctorredis)
         {
             this.doctors = doctors;
             this.dept = dept;
@@ -39,26 +43,54 @@ namespace Smart_Medical.DoctorvVsit
         /// <param name="input"></param>
         /// <returns></returns>
         public async Task<ApiResult> InsertDoctorAccount(CreateUpdateDoctorAccountDto input)
-        { 
-            if (input == null) 
+        {
+            if (input == null)
             {
                 return ApiResult.Fail("信息错误", ResultCode.NotFound);
             }
-            var list=await doctors.GetQueryableAsync();
-            list=list.Where(x=>x.EmployeeId==input.EmployeeId||x.AccountId==input.AccountId);
-            if (list.Any())
+
+            // 检查工号或账户标识是否已存在
+            var existingDoctors = await doctors.GetQueryableAsync();
+            if (existingDoctors.Any(x => x.EmployeeId == input.EmployeeId || x.AccountId == input.AccountId))
             {
                 return ApiResult.Fail("工号或账户标识已存在", ResultCode.ValidationError);
             }
-            var deptlist = await dept.GetQueryableAsync();
-            deptlist = deptlist.Where(x => x.Id == input.DepartmentId);
-            input.DepartmentName=deptlist.FirstOrDefault()?.DepartmentName;
-            //var res=list.OrderByDescending(x => x.EmployeeId).FirstOrDefault();
 
-            //input.EmployeeId = "D" + (int.Parse(res.Replace<string>("D", "")) + 1).ToString("D6");
-            var dto=ObjectMapper.Map<CreateUpdateDoctorAccountDto, DoctorAccount>(input);
+            // 获取并设置部门名称
+            var deptlist = await dept.GetQueryableAsync();
+            input.DepartmentName = deptlist.FirstOrDefault(x => x.Id == input.DepartmentId)?.DepartmentName;
+
+            // --- EmployeeId 自增逻辑开始 ---
+            // 获取当前最大的 EmployeeId
+            var allDoctors = await doctors.GetQueryableAsync();
+            // 1. 在数据库层面进行初步筛选：以"D"开头且长度为7
+            var potentialEmployeeIds = await allDoctors
+                .Where(x => x.EmployeeId.StartsWith("D") && x.EmployeeId.Length == 7)
+                .Select(x => x.EmployeeId) // 只选择 EmployeeId 字段，减少数据传输
+                .ToListAsync(); // 将结果加载到内存中
+
+            // 2. 在内存中进行 int.TryParse 筛选和排序
+            var lastEmployeeId = potentialEmployeeIds
+                .Where(id => int.TryParse(id.Substring(1), out _)) // 在内存中可以使用 _ 或 tempId
+                .OrderByDescending(id => id)
+                .FirstOrDefault();
+
+            int newIdNumber = 1;
+            if (!string.IsNullOrEmpty(lastEmployeeId))
+            {
+                // 尝试解析数字部分并自增
+                if (int.TryParse(lastEmployeeId.Substring(1), out int parsedId))
+                {
+                    newIdNumber = parsedId + 1;
+                }
+            }
+            // 格式化新的 EmployeeId
+            input.EmployeeId = "D" + newIdNumber.ToString("D6");
+            // --- EmployeeId 自增逻辑结束 ---
+
+            var dto = ObjectMapper.Map<CreateUpdateDoctorAccountDto, DoctorAccount>(input);
             await doctors.InsertAsync(dto);
-           await doctorredis.RemoveAsync(CacheKey);
+            await doctorredis.RemoveAsync(CacheKey);
             return ApiResult.Success(ResultCode.Success);
         }
         /// <summary>
@@ -68,7 +100,7 @@ namespace Smart_Medical.DoctorvVsit
         /// <returns></returns>
         public async Task<ApiResult<PageResult<List<DoctorAccountListDto>>>> GetDoctorAccountList(DoctorAccountsearch seach)
         {
-            var datalist=await doctorredis.GetAsync(CacheKey, async () =>
+            var datalist = await doctorredis.GetAsync(CacheKey, async () =>
             {
                 var list = await doctors.GetQueryableAsync();
                 return ObjectMapper.Map<List<DoctorAccount>, List<DoctorAccountListDto>>(list.ToList());
@@ -76,7 +108,6 @@ namespace Smart_Medical.DoctorvVsit
             });
             // 防御性处理，确保 datalist 不为 null
             datalist ??= new List<DoctorAccountListDto>();
-
 
             var list = datalist.WhereIf(!string.IsNullOrEmpty(seach.EmployeeName), x => x.EmployeeName.Contains(seach.EmployeeName));
             //var deptlist = await dept.GetQueryableAsync();
@@ -96,7 +127,7 @@ namespace Smart_Medical.DoctorvVsit
             // 统计总数 (在应用分页之前)
             var totalCount = list.Count();
 
-            list = list.OrderBy(x => x.Id).Skip(seach.SkipCount).Take(seach.MaxResultCount);
+            list = list.OrderBy(x => x.EmployeeId).Skip(seach.SkipCount).Take(seach.MaxResultCount);
             var totalPage = (int)Math.Ceiling((double)totalCount / seach.MaxResultCount);
             var pagedList = new PageResult<List<DoctorAccountListDto>>
             {
@@ -107,12 +138,26 @@ namespace Smart_Medical.DoctorvVsit
             return ApiResult<PageResult<List<DoctorAccountListDto>>>.Success(pagedList, ResultCode.Success);
         }
         /// <summary>
+        /// 根据医生账户id获取详情
+        /// </summary>
+        /// <param name="idsString"></param>
+        /// <returns></returns>
+        [HttpGet]
+        public async Task<ApiResult<List<DoctorAccountListDto>>> DetailDoctorAccount(Guid id)
+        {
+
+            var list = await doctors.GetQueryableAsync();
+            list = list.Where(x => x.Id == id);
+            var dto = ObjectMapper.Map<List<DoctorAccount>, List<DoctorAccountListDto>>(list.ToList());
+            return ApiResult<List<DoctorAccountListDto>>.Success(dto, ResultCode.Success);
+        }
+        /// <summary>
         /// 修改医生账户
         /// </summary>
         /// <param name="id"></param>
         /// <param name="input"></param>
         /// <returns></returns>
-        public async Task<ApiResult> EditDoctorAccount(Guid id,CreateUpdateDoctorAccountDto input)
+        public async Task<ApiResult> EditDoctorAccount(Guid id, CreateUpdateDoctorAccountDto input)
         {
             if (input == null)
             {
@@ -137,10 +182,10 @@ namespace Smart_Medical.DoctorvVsit
         /// <returns></returns>
         /// <exception cref="FormatException"></exception>
         [HttpDelete]
-        public async Task<ApiResult> DeleteDoctorAccount([FromQuery]string idsString)
+        public async Task<ApiResult> DeleteDoctorAccount([FromQuery] string idsString)
         {
-            
-           
+
+
             if (string.IsNullOrWhiteSpace(idsString))
             {
                 return ApiResult.Fail("请提供要删除的医生账户ID字符串。", ResultCode.NotFound);
@@ -203,7 +248,7 @@ namespace Smart_Medical.DoctorvVsit
         {
             try
             {
-                var doctorList = await doctors.GetListAsync(d => d.DepartmentId == departmentId && d.IsActive);
+                var doctorList = await doctors.GetListAsync(d => d.DepartmentId == departmentId);
                 var result = doctorList.Select(d => new DoctorListDto
                 {
                     Id = d.Id,
