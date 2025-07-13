@@ -155,6 +155,7 @@ namespace Smart_Medical.RBAC.Users
             var userDtos = await AsyncExecuter.ToListAsync(
                 queryable.Select(u => new UserDto
                 {
+                    Id=u.Id,
                     UserName = u.UserName,
                     UserEmail = u.UserEmail,
                     UserPhone = u.UserPhone,
@@ -236,13 +237,12 @@ namespace Smart_Medical.RBAC.Users
             //userDto.Permissions = user.UserRoles?
             //    .SelectMany(ur => ur.Role?.RolePermissions ?? new List<RolePermission>())
             //    .Select(rp => rp.Permission?.PermissionCode)
-            //    .Where(pc => !string.IsNullOrEmpty(pc))
             //    .Distinct()
             //    .ToList() ?? new List<string>();
             var permissiondtos= await permission.GetQueryableAsync();
             permissiondtos= permissiondtos.Where(x=>x.Type==Enums.PermissionType.Button);
             //userDto.Permissions = permissiondtos.Select(x=>x.PermissionCode).ToList();
-
+           
             return ApiResult<UserDto>.Success(userDto, ResultCode.Success);
         }
 

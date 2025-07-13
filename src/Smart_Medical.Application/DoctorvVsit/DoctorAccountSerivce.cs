@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.Uow;
 
 namespace Smart_Medical.DoctorvVsit
 {
@@ -28,17 +29,19 @@ namespace Smart_Medical.DoctorvVsit
         private readonly IRepository<DoctorDepartment, Guid> dept;
         private readonly IRepository<User, Guid> users;
         private readonly IRedisHelper<List<DoctorAccountListDto>> doctorredis;
+        private readonly IRepository<DoctorAudit, Guid> audits;
 
-        public DoctorAccountSerivce(IRepository<DoctorAccount, Guid> doctors, IRepository<DoctorDepartment, Guid> dept, IRepository<User, Guid> users, IRedisHelper<List<DoctorAccountListDto>> doctorredis)
+        public DoctorAccountSerivce(IRepository<DoctorAccount, Guid> doctors, IRepository<DoctorDepartment, Guid> dept, IRepository<User, Guid> users, IRedisHelper<List<DoctorAccountListDto>> doctorredis, IRepository<DoctorAudit, Guid> audits)
         {
             this.doctors = doctors;
             this.dept = dept;
             this.users = users;
             this.doctorredis = doctorredis;
+            this.audits = audits;
         }
 
         /// <summary>
-        /// 添加医生账户
+        /// 添加医生注册申请
         /// </summary>
         /// <param name="input"></param>
         /// <returns></returns>
@@ -91,8 +94,19 @@ namespace Smart_Medical.DoctorvVsit
             var dto = ObjectMapper.Map<CreateUpdateDoctorAccountDto, DoctorAccount>(input);
             await doctors.InsertAsync(dto);
             await doctorredis.RemoveAsync(CacheKey);
+
+            var Auditdto = new DoctorAccountAuditDto()
+            {
+                AuditName = dto.AuditName,
+                DoctorId = dto.Id,
+                AuditState = dto.IsActive,
+                AuditDesc = ""
+            };
+            var Auditdtores=ObjectMapper.Map<DoctorAccountAuditDto, DoctorAudit>(Auditdto);
+            await audits.InsertAsync(Auditdtores);
             return ApiResult.Success(ResultCode.Success);
         }
+
         /// <summary>
         /// 获取医生账户列表(分页)
         /// </summary>
@@ -137,6 +151,55 @@ namespace Smart_Medical.DoctorvVsit
             };
             return ApiResult<PageResult<List<DoctorAccountListDto>>>.Success(pagedList, ResultCode.Success);
         }
+
+        /// <summary>
+        /// 获取医生账户审批列表(分页)
+        /// </summary>
+        /// <param name="seach"></param>
+        /// <returns></returns>
+        public async Task<ApiResult<PageResult<List<GetDoctorAuditDto>>>> GetDoctorAccountAuditList(DoctorAccountsearch seach)
+        {
+            var doctorlist = await doctors.GetQueryableAsync();
+            doctorlist = doctorlist.WhereIf(seach.States!=null, x => x.IsActive==seach.States);
+            var list = doctorlist.WhereIf(!string.IsNullOrEmpty(seach.EmployeeName), x => x.EmployeeName.Contains(seach.EmployeeName));
+
+            var doctorauditlist = await audits.GetQueryableAsync();
+            var dto = from d in list
+                      join dp in doctorauditlist on d.Id equals dp.DoctorId
+                      select new GetDoctorAuditDto
+                      {
+                          Id = d.Id,
+                          DepartmentId = d.DepartmentId,
+                          IsActive = d.IsActive,
+                          AccountId = d.AccountId,
+                          EmployeeId = d.EmployeeId,
+                          EmployeeName = d.EmployeeName,
+                          InstitutionName = d.InstitutionName,
+                          Doctorimgs = d.Doctorimgs,
+                          EmployeePhone=d.EmployeePhone,
+                          Sex=d.Sex,
+                          DepartmentName=d.DepartmentName,
+                          DoctorGoodat=d.DoctorGoodat,
+                          Desc=d.Desc,
+                          Certificate=d.Certificate,
+                          DoctorId=d.Id,
+                          AuditName=d.AuditName,
+                          AuditState=dp.AuditState,
+                          AuditDesc=dp.AuditDesc
+                      };
+            // 统计总数 (在应用分页之前)
+            var totalCount = dto.Count();
+
+            dto = dto.OrderBy(x => x.EmployeeId).Skip(seach.SkipCount).Take(seach.MaxResultCount);
+            var totalPage = (int)Math.Ceiling((double)totalCount / seach.MaxResultCount);
+            var pagedList = new PageResult<List<GetDoctorAuditDto>>
+            {
+                TotlePage = totalPage,
+                TotleCount = totalCount,
+                Data = dto.ToList(),
+            };
+            return ApiResult<PageResult<List<GetDoctorAuditDto>>>.Success(pagedList, ResultCode.Success);
+        }
         /// <summary>
         /// 根据医生账户id获取详情
         /// </summary>
@@ -152,11 +215,12 @@ namespace Smart_Medical.DoctorvVsit
             return ApiResult<List<DoctorAccountListDto>>.Success(dto, ResultCode.Success);
         }
         /// <summary>
-        /// 修改医生账户
+        /// 审批医生账户
         /// </summary>
         /// <param name="id"></param>
         /// <param name="input"></param>
         /// <returns></returns>
+        [UnitOfWork]
         public async Task<ApiResult> EditDoctorAccount(Guid id, CreateUpdateDoctorAccountDto input)
         {
             if (input == null)
@@ -171,10 +235,21 @@ namespace Smart_Medical.DoctorvVsit
 
             ObjectMapper.Map(input, entity);
             await doctors.UpdateAsync(entity);
+            var dto=new DoctorAccountAuditDto()
+            {
+                AuditName= entity.AuditName,
+                DoctorId= entity.Id,
+                AuditState= entity.IsActive,
+                AuditDesc= input.AuditDesc,
+            };
+            var auditlist=await audits.GetAsync(x=>x.DoctorId== entity.Id);
+           var auditdto= ObjectMapper.Map(dto, auditlist);
+            await audits.UpdateAsync(auditlist);
             await doctorredis.RemoveAsync(CacheKey);
 
             return ApiResult.Success(ResultCode.Success);
         }
+
         /// <summary>
         /// 删除医生账户
         /// </summary>

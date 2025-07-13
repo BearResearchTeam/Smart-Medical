@@ -94,6 +94,17 @@ namespace Smart_Medical.RBAC.Permissions
 
             return ApiResult<PageResult<List<PermissionDto>>>.Success(pageResult, ResultCode.Success);
         }
+
+        public async Task<ApiResult<List<GetPermissionCodeSelectDto>>> GetPermissionCodeSelect()
+        {
+            var permissionlist = await _permissionRepository.GetQueryableAsync();
+            var res = permissionlist.Select(x => x.PermissionCode);
+            var dto= res.ToList().Select(x => new GetPermissionCodeSelectDto
+            {
+                PermissionCode = x
+            });
+            return ApiResult<List<GetPermissionCodeSelectDto>>.Success(dto.ToList(), ResultCode.Success);
+        }
         /// <summary>
         /// 根据ID更新一个已有的权限
         /// </summary>

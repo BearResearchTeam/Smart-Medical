@@ -48,6 +48,7 @@ namespace Smart_Medical.UserLoginECC
         private readonly IRepository<Permission, Guid> _permission;
         private readonly IRepository<RBAC.Role, Guid> _roleRepository;
         private readonly IRepository<UserRole, Guid> _userRoleRepository;
+        private readonly IRepository<RolePermission, Guid> rolepermissionRepository;
 
         public UserLoginAsync(
                 IRepository<User, Guid> userRepository,
@@ -57,7 +58,8 @@ namespace Smart_Medical.UserLoginECC
                 LMZTokenHelper tokenHelper,
                 IRepository<Permission, Guid> permission,
                 IRepository<RBAC.Role, Guid> roleRepository,
-                IRepository<UserRole, Guid> userRoleRepository
+                IRepository<UserRole, Guid> userRoleRepository,
+                IRepository<RolePermission, Guid> rolepermissionRepository
                 )
         {
             _userRepository = userRepository;
@@ -69,6 +71,7 @@ namespace Smart_Medical.UserLoginECC
             _permission = permission;
             _roleRepository = roleRepository;
             _userRoleRepository = userRoleRepository;
+            this.rolepermissionRepository = rolepermissionRepository;
         }
 
         /// <summary>
@@ -104,12 +107,26 @@ namespace Smart_Medical.UserLoginECC
                 //var quary = await _userRoleRepository.GetQueryableAsync();
                 //var RoleId = quary.Include(x => x.Role).Where(x=>x.UserId== userDto.Id).Select(x=>x.RoleId);
 
-                userDto.RoleName = await _userRoleRepository.GetQueryableAsync()
-                                .ContinueWith(t => t.Result //ContinueWith 用于“前一个任务完成后，继续执行下一个任务”，实现任务的链式编排和回调处理。
-                                .Where(x => x.UserId == userDto.Id)
-                                .Include(x => x.Role)
-                                .Select(x => x.Role.RoleName)
-                                .ToList());
+                // 获取用户角色Id列表
+                var userRoleList = await _userRoleRepository.GetQueryableAsync();
+                // 获取角色名称
+                userDto.RoleName = userRoleList
+                    .Where(x => x.UserId == userDto.Id)
+                    .Include(x => x.Role)
+                    .Select(x => x.Role.RoleName)
+                    .ToList();
+                var roleIds = userRoleList
+                    .Where(x => x.UserId == userDto.Id)
+                    .Select(x => x.RoleId)
+                    .ToList();
+                // 获取权限码
+                var permissionCodes = await rolepermissionRepository.GetQueryableAsync();
+                userDto.PermissionCode = permissionCodes
+                    .Where(x => roleIds.Contains(x.RoleId))
+                    .Include(x => x.Permission)
+                    .Select(x => x.Permission.PermissionCode)
+                    .ToList();
+                //userDto.PermissionCode = await rolepermissionRepository.GetQueryableAsync().ContinueWith(t => t.Result.Where(x=>x.Role.Id == userDto.Id).Include(x=>x.Permission).Select(x => x.Permission.PermissionCode).ToList());
 
 
                 //权限

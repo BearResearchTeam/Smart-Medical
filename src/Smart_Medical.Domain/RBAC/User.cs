@@ -16,7 +16,7 @@ namespace Smart_Medical.RBAC
     {
 
         [Required(ErrorMessage = "用户名是必填项。")]
-        [StringLength(50, MinimumLength = 3, ErrorMessage = "用户名长度必须在 3 到 50 个字符之间。")]
+        [StringLength(50, MinimumLength = 2, ErrorMessage = "用户名长度必须在 2 到 50 个字符之间。")]
         public string UserName { get; set; }
 
         [Required(ErrorMessage = "密码是必填项。")]

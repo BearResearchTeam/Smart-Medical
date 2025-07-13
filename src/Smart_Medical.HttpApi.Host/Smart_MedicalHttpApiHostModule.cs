@@ -230,6 +230,7 @@ public class Smart_MedicalHttpApiHostModule : AbpModule
                 options.SwaggerDoc("设备管理", new OpenApiInfo { Title = "设备管理", Version = "设备管理" });
                 options.SwaggerDoc("用户登录", new OpenApiInfo { Title = "用户登录", Version = "用户登录" });
                 options.SwaggerDoc("扣子空间智能体", new OpenApiInfo { Title = "扣子空间智能体", Version = "扣子空间智能体" });
+                options.SwaggerDoc("图片上传", new OpenApiInfo { Title = "图片上传", Version = "图片上传" });
 
                 options.DocInclusionPredicate((doc, desc) =>
                 {
@@ -377,6 +378,7 @@ public class Smart_MedicalHttpApiHostModule : AbpModule
             c.SwaggerEndpoint("/swagger/设备管理/swagger.json", "设备管理");
             c.SwaggerEndpoint("/swagger/用户登录/swagger.json", "用户登录");
             c.SwaggerEndpoint("/swagger/扣子空间智能体/swagger.json", "扣子空间智能体");
+            c.SwaggerEndpoint("/swagger/图片上传/swagger.json", "图片上传");
 
             // 模型的默认扩展深度，设置为 -1 完全隐藏模型
             c.DefaultModelsExpandDepth(1);

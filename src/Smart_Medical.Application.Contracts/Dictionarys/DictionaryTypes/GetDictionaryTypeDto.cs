@@ -19,7 +19,7 @@ namespace Smart_Medical.Dictionarys.DictionaryTypes
         /// <summary>
         /// 字典标签
         /// </summary>
-        public string DictionaryLabel { get; set; }
+        public int DictionaryLabel { get; set; }
         /// <summary>
         /// 字典值
         /// </summary>

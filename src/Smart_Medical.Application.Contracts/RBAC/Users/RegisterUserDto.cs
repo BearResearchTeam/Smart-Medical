@@ -10,7 +10,7 @@ namespace Smart_Medical.RBAC.Users
     public class RegisterUserDto
     {
         // 用户信息
-        [Required, StringLength(50, MinimumLength = 3)]
+        [Required, StringLength(50, MinimumLength = 2)]
         public string UserName { get; set; }
 
         [Required, StringLength(100, MinimumLength = 6)]
