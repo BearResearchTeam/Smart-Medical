@@ -17,7 +17,6 @@ namespace Smart_Medical.RBAC.Users
     public class UserDto : ResultLoginDto
     {
         public Guid Id { get; set; }
-        //public string UserName { get; set; }
         public List<string> RoleName { get; set; }
         
         //public string UserEmail { get; set; }
@@ -26,7 +25,5 @@ namespace Smart_Medical.RBAC.Users
         public List<string> PermissionCode { get; set; }
         //public List<string> Roles { get; set; }
 
-        // 导航属性的DTO，用于展示关联的用户角色信息
-       // public ICollection<UserRoleDto> UserRoles { get; set; }
     }
 }

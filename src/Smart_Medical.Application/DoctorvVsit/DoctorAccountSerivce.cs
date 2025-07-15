@@ -23,7 +23,7 @@ namespace Smart_Medical.DoctorvVsit
     public class DoctorAccountSerivce : ApplicationService, IDoctorAccountSerivce
     {
         // 定义一个常量作为缓存键，这是这个特定缓存项在 Redis 中的唯一标识。
-        // 使用一个清晰且唯一的键很重要。
+        // 使用一个清晰且唯一的键。
         private const string CacheKey = "SmartMedical:doctor:All"; // 建议使用更具体的键名和前缀
         private readonly IRepository<DoctorAccount, Guid> doctors;
         private readonly IRepository<DoctorDepartment, Guid> dept;
