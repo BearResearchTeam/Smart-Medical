@@ -330,16 +330,14 @@ public class Smart_MedicalHttpApiHostModule : AbpModule
 
         if (env.IsDevelopment())
         {
-           // app.UseDeveloperExceptionPage();
+            app.UseDeveloperExceptionPage();
         }
-        app.UseDeveloperExceptionPage();
         app.UseAbpRequestLocalization();
 
         if (!env.IsDevelopment())
         {
-            //app.UseErrorPage();
+            app.UseErrorPage();
         }
-        app.UseErrorPage();
         app.UseCorrelationId();
         app.MapAbpStaticAssets();//静态资源
         app.UseRouting();
