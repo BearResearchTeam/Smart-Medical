@@ -430,6 +430,7 @@ namespace Smart_Medical.KouZiAI
                 request.Stream = true;
                 
                 var httpClient = _httpClientFactory.CreateClient("KouZiAI");
+
                 var requestBody = BuildRequestBody(request);
                 
                 var json = JsonSerializer.Serialize(requestBody, GetJsonSerializerOptions());
